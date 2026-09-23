@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Redirecting…</title>
+  <script>
+    // GitHub Pages project site: keep /premium-share/ base, map path to hash route
+    (function () {
+      var base = "/premium-share";
+      var path = location.pathname;
+      if (path.indexOf(base) === 0) path = path.slice(base.length) || "/";
+      if (!path || path === "/") path = "/";
+      var hash = "#" + (path.charAt(0) === "/" ? path : "/" + path) + location.search;
+      location.replace(base + "/" + hash);
+    })();
+  </script>
+</head>
+<body>
+  <p><a href="./">PremiumShare로 이동</a></p>
+</body>
+</html>
