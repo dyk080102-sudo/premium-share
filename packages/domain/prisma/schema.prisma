@@ -1,0 +1,1092 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== ENUMS =====================
+
+enum UserRole {
+  SUPER_ADMIN
+  OPERATOR
+  SUPPORT
+  MEMBER
+}
+
+enum AuthTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFY
+}
+
+enum PolicyType {
+  TERMS
+  PRIVACY
+  REFUND
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
+enum OwnerAccountStatus {
+  AVAILABLE
+  UNVERIFIED
+  SUSPENDED
+}
+
+enum SupplyPaymentStatus {
+  ACTIVE
+  EXPIRING
+  SUSPENDED
+}
+
+enum GroupStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum AllocationStatus {
+  RESERVED
+  INVITED
+  ACTIVE
+  PENDING_RECLAIM
+  RECLAIMED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+enum BankImportStatus {
+  PREVIEW
+  CONFIRMED
+  CANCELLED
+}
+
+enum MatchStatus {
+  UNMATCHED
+  MATCHED
+  DUPLICATE
+  REVIEW
+}
+
+enum SubscriptionStatus {
+  WAITING
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING_SEND
+  SENT
+  CUSTOMER_ACCEPTED
+  ACTIVATED
+  FAILED
+  EXPIRED
+  PENDING_CANCEL
+  CANCELLED
+}
+
+enum TaskType {
+  INVITE_SEND
+  INVITE_ACTIVATE
+  SLOT_RECLAIM
+  RENEWAL_REMIND
+  REVIEW_REFUND
+  MANUAL_PAYMENT_CONFIRM
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  FAILED
+  CANCELLED
+}
+
+enum WaitlistStatus {
+  WAITING
+  ALLOCATED
+  CANCELLED
+  EXPIRED
+}
+
+enum RefundStatus {
+  REQUESTED
+  REVIEWING
+  APPROVED
+  PENDING_PAYOUT
+  PAID_OUT
+  REJECTED
+  CANCELLED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum OutboxStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+enum BusinessSource {
+  DEMO
+  MANUAL
+}
+
+enum FamilyAutomationMode {
+  DEMO
+  ASSISTED
+  AUTHORIZED_BROWSER
+}
+
+enum FamilyJobType {
+  INSPECT
+  LINK_OR_CREATE_GROUP
+  SYNC_SLOTS
+  INVITE
+  CANCEL_INVITE
+  REMOVE_MEMBER
+  VERIFY_MEMBERSHIP
+  VERIFY_REMOVAL
+}
+
+enum FamilyJobStatus {
+  QUEUED
+  CLAIMED
+  IN_PROGRESS
+  AWAITING_HUMAN
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXTERNAL_RESULT_UNKNOWN
+}
+
+enum FamilyErrorCode {
+  SESSION_EXPIRED
+  HUMAN_ACTION_REQUIRED
+  ACCOUNT_MISMATCH
+  PERMISSION_DENIED
+  POLICY_BLOCKED
+  PLAN_NOT_ACTIVE
+  GROUP_FULL
+  TARGET_AMBIGUOUS
+  INVITE_LIMIT_REACHED
+  UI_CHANGED
+  EXTERNAL_RESULT_UNKNOWN
+  REAL_UI_UNVERIFIED
+  PRECONDITION_FAILED
+  PAUSED
+  EMERGENCY_STOP
+}
+
+enum FamilyMemberKind {
+  ADMIN
+  MEMBER
+  PENDING_INVITE
+  UNMANAGED
+}
+
+enum FamilyExternalStatus {
+  OBSERVED
+  INVITED
+  JOINED
+  REMOVAL_PENDING
+  REMOVED
+  UNKNOWN
+}
+
+// ===================== AUTH =====================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  role          UserRole @default(MEMBER)
+  isActive      Boolean  @default(true)
+  loginAttempts Int      @default(0)
+  lockedUntil   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions      Session[]
+  authTokens    AuthToken[]
+  consents      Consent[]
+  orders        Order[]
+  subscriptions Subscription[]
+  refunds       Refund[]
+  tickets       Ticket[]
+  ticketMessages TicketMessage[]
+  notifications Notification[]
+  waitlistEntries WaitlistEntry[]
+  auditLogs     AuditLog[]     @relation("AuditActor")
+  outboxMessages OutboxMessage[]
+  attachments   Attachment[]
+
+  @@map("users")
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model AuthToken {
+  id         String        @id @default(cuid())
+  userId     String
+  type       AuthTokenType
+  tokenHash  String        @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime      @default(now())
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_tokens")
+}
+
+model PolicyVersion {
+  id          String     @id @default(cuid())
+  type        PolicyType
+  version     String
+  content     String     @db.Text
+  effectiveAt DateTime
+  createdBy   String?
+
+  consents    Consent[]
+
+  @@unique([type, version])
+  @@map("policy_versions")
+}
+
+model Consent {
+  id              String        @id @default(cuid())
+  userId          String
+  policyVersionId String
+  consentedAt     DateTime      @default(now())
+  ipAddress       String?
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policyVersion   PolicyVersion @relation(fields: [policyVersionId], references: [id])
+
+  @@unique([userId, policyVersionId])
+  @@map("consents")
+}
+
+// ===================== PRODUCT =====================
+
+model Product {
+  id                    String       @id @default(cuid())
+  name                  String
+  description           String?      @db.Text
+  serviceType           String
+  shareMethod           String
+  countryCodes          Json         @default("[]")
+  eligibilityInfo       String?      @db.Text
+  reviewStatus          ReviewStatus @default(PENDING)
+  reviewNote            String?
+  reviewedAt            DateTime?
+  reviewedBy            String?
+  isActive              Boolean      @default(false)
+  sortOrder             Int          @default(0)
+  onboardingGuide       String?      @db.Text
+  groupMoveRestriction  Boolean      @default(false)
+  maxSlotsPerGroup      Int          @default(5)
+  adminSlotsReserved    Int          @default(0)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  plans                 Plan[]
+  refundPolicies        RefundPolicy[]
+  subscriptionGroups    SubscriptionGroup[]
+  orders                Order[]
+  subscriptions         Subscription[]
+  waitlistEntries       WaitlistEntry[]
+
+  @@map("products")
+}
+
+model Plan {
+  id           String   @id @default(cuid())
+  productId    String
+  name         String
+  durationDays Int
+  priceKrw     Int
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+
+  product      Product  @relation(fields: [productId], references: [id])
+  orders       Order[]
+  subscriptions Subscription[]
+  waitlistEntries WaitlistEntry[]
+  subscriptionPeriods SubscriptionPeriod[]
+
+  @@index([productId])
+  @@map("plans")
+}
+
+model RefundPolicy {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  rules     Json
+  version   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("refund_policies")
+}
+
+// ===================== OPERATIONS =====================
+
+model OwnerAccount {
+  id          String             @id @default(cuid())
+  email       String
+  serviceType String
+  country     String
+  status      OwnerAccountStatus @default(UNVERIFIED)
+  verifiedAt  DateTime?
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  groups      SubscriptionGroup[]
+  familyLinks FamilyGroupLink[]
+  consents    FamilyOwnerConsent[]
+  familyJobs  FamilyJob[]
+
+  @@map("owner_accounts")
+}
+
+model SubscriptionGroup {
+  id                   String              @id @default(cuid())
+  productId            String
+  ownerAccountId       String
+  country              String
+  totalCapacity        Int
+  adminSlotsReserved   Int                 @default(0)
+  name                 String
+  supplyPaymentStatus  SupplyPaymentStatus @default(ACTIVE)
+  supplyNextRenewalAt  DateTime?
+  status               GroupStatus         @default(ACTIVE)
+  policyVerified       Boolean             @default(false)
+  operatorNotes        String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  product              Product             @relation(fields: [productId], references: [id])
+  ownerAccount         OwnerAccount        @relation(fields: [ownerAccountId], references: [id])
+  slots                Slot[]
+  expenses             GroupExpense[]
+  operationTasks       OperationTask[]
+  familyLink           FamilyGroupLink?
+  familyAutomationSetting FamilyAutomationSetting?
+  familyJobs           FamilyJob[]
+  familyApprovals      FamilyApproval[]
+
+  @@index([productId])
+  @@index([ownerAccountId])
+  @@map("subscription_groups")
+}
+
+model Slot {
+  id          String            @id @default(cuid())
+  groupId     String
+  slotIndex   Int
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  group       SubscriptionGroup @relation(fields: [groupId], references: [id])
+  allocations Allocation[]
+  operationTasks OperationTask[]
+
+  @@unique([groupId, slotIndex])
+  @@index([groupId])
+  @@map("slots")
+}
+
+model Allocation {
+  id             String           @id @default(cuid())
+  slotId         String
+  subscriptionId String
+  status         AllocationStatus @default(RESERVED)
+  createdAt      DateTime         @default(now())
+  activatedAt    DateTime?
+  reclaimedAt    DateTime?
+  reclaimedBy    String?
+  reclaimNotes   String?
+
+  slot           Slot             @relation(fields: [slotId], references: [id])
+  subscription   Subscription     @relation(fields: [subscriptionId], references: [id])
+  invitations    Invitation[]
+  operationTasks OperationTask[]  @relation("AllocationTasks")
+  familyExternalMembers FamilyExternalMember[]
+
+  @@index([slotId])
+  @@index([subscriptionId])
+  @@map("allocations")
+}
+
+// ===================== ORDER / PAYMENT =====================
+
+model Order {
+  id                    String      @id @default(cuid())
+  userId                String
+  planId                String
+  productId             String
+  productNameSnapshot   String
+  planNameSnapshot      String
+  durationDaysSnapshot  Int
+  priceKrwSnapshot      Int
+  policyVersionSnapshot Json?
+  status                OrderStatus @default(PENDING_PAYMENT)
+  source                BusinessSource @default(DEMO)
+  expiresAt             DateTime
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  idempotencyKey        String      @unique
+
+  user                  User        @relation(fields: [userId], references: [id])
+  plan                  Plan        @relation(fields: [planId], references: [id])
+  product               Product     @relation(fields: [productId], references: [id])
+  payments              Payment[]
+  subscriptions         Subscription[]
+  refunds               Refund[]
+  tickets               Ticket[]
+  operationTasks        OperationTask[]
+  subscriptionPeriods   SubscriptionPeriod[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+model Payment {
+  id              String         @id @default(cuid())
+  orderId         String
+  amountKrw       Int
+  status          PaymentStatus  @default(PENDING)
+  source          BusinessSource @default(DEMO)
+  confirmedAt     DateTime?
+  confirmedBy     String?
+  confirmNotes    String?
+  idempotencyKey  String         @unique
+  createdAt       DateTime       @default(now())
+
+  order           Order          @relation(fields: [orderId], references: [id])
+  bankTransactions BankTransaction[]
+  refunds         Refund[]
+  subscriptionPeriods SubscriptionPeriod[]
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+model BankImport {
+  id          String          @id @default(cuid())
+  filename    String
+  uploadedBy  String
+  uploadedAt  DateTime        @default(now())
+  rowCount    Int             @default(0)
+  errorCount  Int             @default(0)
+  status      BankImportStatus @default(PREVIEW)
+
+  transactions BankTransaction[]
+
+  @@map("bank_imports")
+}
+
+model BankTransaction {
+  id               String      @id @default(cuid())
+  importId         String
+  externalId       String      @unique
+  transactedAt     DateTime
+  amountKrw        Int
+  depositorName    String
+  memo             String?
+  matchStatus      MatchStatus @default(UNMATCHED)
+  matchedPaymentId String?
+  createdAt        DateTime    @default(now())
+
+  import           BankImport  @relation(fields: [importId], references: [id])
+  matchedPayment   Payment?    @relation(fields: [matchedPaymentId], references: [id])
+
+  @@index([importId])
+  @@map("bank_transactions")
+}
+
+// ===================== SUBSCRIPTION =====================
+
+model Subscription {
+  id                  String             @id @default(cuid())
+  userId              String
+  orderId             String
+  productId           String
+  planId              String
+  status              SubscriptionStatus @default(WAITING)
+  startedAt           DateTime?
+  expiresAt           DateTime?
+  currentPeriodStart  DateTime?
+  currentPeriodEnd    DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  user                User               @relation(fields: [userId], references: [id])
+  order               Order              @relation(fields: [orderId], references: [id])
+  product             Product            @relation(fields: [productId], references: [id])
+  plan                Plan               @relation(fields: [planId], references: [id])
+  allocations         Allocation[]
+  invitations         Invitation[]
+  periods             SubscriptionPeriod[]
+  refunds             Refund[]
+  tickets             Ticket[]
+  operationTasks      OperationTask[]
+  waitlistEntries     WaitlistEntry[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([productId])
+  @@map("subscriptions")
+}
+
+model SubscriptionPeriod {
+  id             String         @id @default(cuid())
+  subscriptionId String
+  orderId        String
+  paymentId      String?
+  planId         String?
+  startAt        DateTime
+  endAt          DateTime
+  durationDays   Int
+  source         BusinessSource @default(DEMO)
+  createdAt      DateTime       @default(now())
+
+  subscription   Subscription   @relation(fields: [subscriptionId], references: [id])
+  order          Order          @relation(fields: [orderId], references: [id])
+  payment        Payment?       @relation(fields: [paymentId], references: [id])
+  plan           Plan?          @relation(fields: [planId], references: [id])
+
+  @@index([subscriptionId])
+  @@map("subscription_periods")
+}
+
+model Invitation {
+  id                   String           @id @default(cuid())
+  allocationId         String
+  subscriptionId       String
+  inviteEmail          String
+  status               InvitationStatus @default(PENDING_SEND)
+  sentAt               DateTime?
+  sentBy               String?
+  acceptedReportedAt   DateTime?
+  activatedAt          DateTime?
+  activatedBy          String?
+  activationNotes      String?
+  failureReason        String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  allocation           Allocation       @relation(fields: [allocationId], references: [id])
+  subscription         Subscription     @relation(fields: [subscriptionId], references: [id])
+  operationTasks       OperationTask[]  @relation("InvitationTasks")
+
+  @@index([allocationId])
+  @@index([subscriptionId])
+  @@map("invitations")
+}
+
+model OperationTask {
+  id             String            @id @default(cuid())
+  type           TaskType
+  orderId        String?
+  subscriptionId String?
+  groupId        String?
+  slotId         String?
+  invitationId   String?
+  allocationId   String?
+  assignedTo     String?
+  priority       Int               @default(5)
+  dueAt          DateTime?
+  status         TaskStatus        @default(PENDING)
+  resultNotes    String?
+  createdAt      DateTime          @default(now())
+  resolvedAt     DateTime?
+
+  order          Order?            @relation(fields: [orderId], references: [id])
+  subscription   Subscription?     @relation(fields: [subscriptionId], references: [id])
+  group          SubscriptionGroup? @relation(fields: [groupId], references: [id])
+  slot           Slot?             @relation(fields: [slotId], references: [id])
+  invitation     Invitation?       @relation("InvitationTasks", fields: [invitationId], references: [id])
+  allocation     Allocation?       @relation("AllocationTasks", fields: [allocationId], references: [id])
+
+  @@index([status])
+  @@index([type])
+  @@map("operation_tasks")
+}
+
+// ===================== WAITLIST / REFUND =====================
+
+model WaitlistEntry {
+  id                 String        @id @default(cuid())
+  userId             String
+  productId          String
+  planId             String
+  eligibilityCountry String?
+  subscriptionId     String?
+  status             WaitlistStatus @default(WAITING)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  user               User          @relation(fields: [userId], references: [id])
+  product            Product       @relation(fields: [productId], references: [id])
+  plan               Plan          @relation(fields: [planId], references: [id])
+  subscription       Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([productId, status])
+  @@map("waitlist_entries")
+}
+
+model Refund {
+  id                   String         @id @default(cuid())
+  userId               String
+  orderId              String
+  paymentId            String?
+  subscriptionId       String?
+  requestedAmountKrw   Int
+  approvedAmountKrw    Int?
+  status               RefundStatus   @default(REQUESTED)
+  reason               String
+  requestNotes         String?
+  reviewNotes          String?
+  reviewedBy           String?
+  reviewedAt           DateTime?
+  paidAt               DateTime?
+  paidBy               String?
+  payoutRef            String?
+  paidNotes            String?
+  source               BusinessSource @default(DEMO)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  user                 User           @relation(fields: [userId], references: [id])
+  order                Order          @relation(fields: [orderId], references: [id])
+  payment              Payment?       @relation(fields: [paymentId], references: [id])
+  subscription         Subscription?  @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderId])
+  @@map("refunds")
+}
+
+// ===================== CS / NOTIFICATIONS =====================
+
+model Ticket {
+  id             String         @id @default(cuid())
+  userId         String
+  orderId        String?
+  subscriptionId String?
+  title          String
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(OPEN)
+  assignedTo     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user           User           @relation(fields: [userId], references: [id])
+  order          Order?         @relation(fields: [orderId], references: [id])
+  subscription   Subscription?  @relation(fields: [subscriptionId], references: [id])
+  messages       TicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id           String       @id @default(cuid())
+  ticketId     String
+  authorId     String
+  content      String       @db.Text
+  isInternal   Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+
+  ticket       Ticket       @relation(fields: [ticketId], references: [id])
+  author       User         @relation(fields: [authorId], references: [id])
+  attachments  Attachment[]
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+model Attachment {
+  id              String        @id @default(cuid())
+  ticketMessageId String
+  filename        String
+  storagePath     String
+  mimeType        String
+  sizeBytes       Int
+  uploadedBy      String
+  createdAt       DateTime      @default(now())
+
+  ticketMessage   TicketMessage @relation(fields: [ticketMessageId], references: [id])
+  uploader        User          @relation(fields: [uploadedBy], references: [id])
+
+  @@map("attachments")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  relatedId   String?
+  relatedType String?
+  createdAt   DateTime @default(now())
+  readAt      DateTime?
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model OutboxMessage {
+  id               String         @id @default(cuid())
+  type             String
+  recipientUserId  String?
+  recipientContact String
+  subject          String
+  content          String         @db.Text
+  templateKey      String?
+  variables        Json?
+  status           OutboxStatus   @default(PENDING)
+  source           BusinessSource @default(DEMO)
+  scheduledAt      DateTime       @default(now())
+  processedAt      DateTime?
+  error            String?
+  createdAt        DateTime       @default(now())
+
+  user             User?          @relation(fields: [recipientUserId], references: [id])
+
+  @@index([status, scheduledAt])
+  @@map("outbox_messages")
+}
+
+// ===================== AUDIT / JOBS =====================
+
+model JobExecution {
+  id             String    @id @default(cuid())
+  jobType        String
+  targetId       String?
+  scheduledAt    DateTime
+  startedAt      DateTime?
+  completedAt    DateTime?
+  retryCount     Int       @default(0)
+  status         JobStatus @default(PENDING)
+  resultSummary  String?
+  errorMessage   String?
+  idempotencyKey String    @unique
+  lockedAt       DateTime?
+  lockedBy       String?
+  createdAt      DateTime  @default(now())
+
+  @@index([status])
+  @@index([jobType])
+  @@map("job_executions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  String?
+  targetType String
+  targetId   String
+  action     String
+  beforeJson Json?
+  afterJson  Json?
+  reason     String?
+  source     BusinessSource @default(DEMO)
+  requestId  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ===================== SETTINGS / CONTENT =====================
+
+model Faq {
+  id        String   @id @default(cuid())
+  category  String
+  question  String
+  answer    String   @db.Text
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  content   String    @db.Text
+  isActive  Boolean   @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("announcements")
+}
+
+model AppSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+model GroupExpense {
+  id          String            @id @default(cuid())
+  groupId     String
+  amountKrw   Int
+  paidAt      DateTime
+  periodStart DateTime
+  periodEnd   DateTime
+  notes       String?
+  createdAt   DateTime          @default(now())
+
+  group       SubscriptionGroup @relation(fields: [groupId], references: [id])
+
+  @@map("group_expenses")
+}
+
+// ===================== FAMILY AUTOMATION =====================
+
+model FamilyGroupLink {
+  id                   String   @id @default(cuid())
+  subscriptionGroupId  String   @unique
+  ownerAccountId       String
+  /// 외부에서 확인된 식별값만 저장. 임의 생성 금지.
+  externalGroupKey     String?
+  adminEmailObserved   String?
+  planActiveConfirmed  Boolean  @default(false)
+  planCheckedAt        DateTime?
+  capacityTotal        Int?
+  adminSeats           Int      @default(1)
+  lastInspectedAt      DateTime?
+  lastInspectStatus    String?
+  lastInspectError     String?
+  linkedAt             DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  group                SubscriptionGroup @relation(fields: [subscriptionGroupId], references: [id])
+  ownerAccount         OwnerAccount      @relation(fields: [ownerAccountId], references: [id])
+  externalMembers      FamilyExternalMember[]
+
+  @@index([ownerAccountId])
+  @@map("family_group_links")
+}
+
+model FamilyExternalMember {
+  id             String               @id @default(cuid())
+  linkId         String
+  email          String
+  displayName    String?
+  kind           FamilyMemberKind
+  externalStatus FamilyExternalStatus @default(OBSERVED)
+  allocationId   String?
+  managedByUs    Boolean              @default(false)
+  observedAt     DateTime             @default(now())
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  link           FamilyGroupLink      @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  allocation     Allocation?          @relation(fields: [allocationId], references: [id])
+
+  @@unique([linkId, email, kind])
+  @@index([allocationId])
+  @@map("family_external_members")
+}
+
+model FamilyAutomationSetting {
+  id                String               @id @default(cuid())
+  groupId           String               @unique
+  mode              FamilyAutomationMode @default(DEMO)
+  autoInspect       Boolean              @default(true)
+  autoCreateGroup   Boolean              @default(false)
+  autoInvite        Boolean              @default(false)
+  autoRemove        Boolean              @default(false)
+  paused            Boolean              @default(false)
+  authorizedEnabled Boolean              @default(false) // 실 UI 검증 전 반드시 false
+  approvedBy        String?
+  approvedAt        DateTime?
+  notes             String?
+  updatedAt         DateTime             @updatedAt
+  createdAt         DateTime             @default(now())
+
+  group             SubscriptionGroup    @relation(fields: [groupId], references: [id])
+
+  @@map("family_automation_settings")
+}
+
+model FamilyOwnerConsent {
+  id             String   @id @default(cuid())
+  ownerAccountId String
+  consentedAt    DateTime @default(now())
+  consentedBy    String
+  scopeNote      String
+  /// 운영자 동의이지 Google/YouTube 공식 허가가 아님을 명시
+  evidenceNote   String
+  isActive       Boolean  @default(true)
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  ownerAccount   OwnerAccount @relation(fields: [ownerAccountId], references: [id])
+
+  @@index([ownerAccountId, isActive])
+  @@map("family_owner_consents")
+}
+
+model FamilyApproval {
+  id         String        @id @default(cuid())
+  groupId    String
+  jobType    FamilyJobType
+  scopeJson  Json
+  approvedBy String
+  approvedAt DateTime      @default(now())
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime      @default(now())
+
+  group      SubscriptionGroup @relation(fields: [groupId], references: [id])
+  jobs       FamilyJob[]
+
+  @@index([groupId, jobType])
+  @@map("family_approvals")
+}
+
+model FamilyJob {
+  id               String               @id @default(cuid())
+  idempotencyKey   String               @unique
+  type             FamilyJobType
+  groupId          String
+  ownerAccountId   String
+  subscriptionId   String?
+  allocationId     String?
+  targetEmail      String?
+  status           FamilyJobStatus      @default(QUEUED)
+  errorCode        FamilyErrorCode?
+  mode             FamilyAutomationMode
+  approvalId       String?
+  domainVersion    String               @default("1")
+  beforeJson       Json?
+  afterJson        Json?
+  externalResultJson Json?
+  requestedAt      DateTime             @default(now())
+  startedAt        DateTime?
+  observedAt       DateTime?
+  completedAt      DateTime?
+  retryCount       Int                  @default(0)
+  lockedBy         String?
+  lockedAt         DateTime?
+  resultSummary    String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  group            SubscriptionGroup    @relation(fields: [groupId], references: [id])
+  ownerAccount     OwnerAccount         @relation(fields: [ownerAccountId], references: [id])
+  approval         FamilyApproval?      @relation(fields: [approvalId], references: [id])
+
+  @@index([status, requestedAt])
+  @@index([ownerAccountId, status])
+  @@index([groupId, status])
+  @@map("family_jobs")
+}
+
+model FamilyBrowserProfileMeta {
+  id              String   @id @default(cuid())
+  ownerAccountId  String   @unique
+  profileLabel    String
+  /// 경로 해시만 저장. 쿠키/세션 원문 금지
+  profilePathHash String?
+  lastLoginAt     DateTime?
+  lastErrorCode   FamilyErrorCode?
+  isDisposable    Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("family_browser_profile_meta")
+}

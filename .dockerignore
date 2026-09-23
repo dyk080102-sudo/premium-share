@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+*.md
+uploads
+.env
+.env.local
+coverage
+playwright-report
+test-results
+**/*.tsbuildinfo
+apps/web/.next

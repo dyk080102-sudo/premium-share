@@ -1,0 +1,46 @@
+{
+  "name": "premium-share",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "npm@11.8.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/web",
+    "dev:unified": "npm run dev:unified --workspace=apps/web",
+    "start:unified": "npm run start:unified --workspace=apps/web",
+    "dev:worker": "npm run dev --workspace=apps/worker",
+    "dev:family-runner": "npm run dev --workspace=apps/family-runner",
+    "dev:mock-family": "npm run dev:mock --workspace=apps/family-runner",
+    "build": "npm run build --workspace=apps/web",
+    "start": "npm run start --workspace=apps/web",
+    "db:generate": "npx prisma generate --schema=packages/domain/prisma/schema.prisma",
+    "db:migrate": "npx prisma migrate deploy --schema=packages/domain/prisma/schema.prisma",
+    "db:migrate:dev": "npx prisma migrate dev --schema=packages/domain/prisma/schema.prisma",
+    "db:seed": "npx tsx packages/domain/prisma/seed.ts",
+    "db:studio": "npx prisma studio --schema=packages/domain/prisma/schema.prisma",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "test:all": "npm run test:unit && npm run test:integration",
+    "verify:flow": "node scripts/verify-flow.mjs",
+    "verify:full": "npm run test:unit && npm run test:integration && npm run verify:flow && npm run test:e2e",
+    "lint": "eslint apps/web/src packages/domain/src",
+    "typecheck": "tsc --noEmit -p apps/web/tsconfig.json",
+    "type-check": "tsc --noEmit -p apps/web/tsconfig.json",
+    "postinstall": "npx prisma generate --schema=packages/domain/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.0",
+    "vitest": "^1.6.0",
+    "@playwright/test": "^1.44.0",
+    "@types/node": "^20.0.0",
+    "prisma": "^5.14.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,155 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: premium-share-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: premiumshare
+      POSTGRES_USER: psuser
+      POSTGRES_PASSWORD: pspassword
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U psuser -d premiumshare']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  db-test:
+    image: postgres:15-alpine
+    container_name: premium-share-db-test
+    profiles: ['test']
+    environment:
+      POSTGRES_DB: premiumshare_test
+      POSTGRES_USER: psuser
+      POSTGRES_PASSWORD: pspassword
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U psuser -d premiumshare_test']
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  maildev:
+    image: maildev/maildev
+    container_name: premium-share-maildev
+    restart: unless-stopped
+    ports:
+      - '1080:1080'
+      - '1025:1025'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:1080 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  migration:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: premium-share-migration
+    environment:
+      DATABASE_URL: postgresql://psuser:pspassword@db:5432/premiumshare
+      BUSINESS_MODE: DEMO
+    command: >
+      sh -c "npx prisma migrate deploy --schema=packages/domain/prisma/schema.prisma &&
+             npx tsx packages/domain/prisma/seed.ts"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: premium-share-web
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://psuser:pspassword@db:5432/premiumshare
+      NEXTAUTH_SECRET: dev-secret-change-in-production-32chars
+      NEXTAUTH_URL: http://localhost:3000
+      SMTP_HOST: maildev
+      SMTP_PORT: '1025'
+      SMTP_FROM: noreply@premiumshare.demo
+      BUSINESS_MODE: DEMO
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+      maildev:
+        condition: service_started
+    volumes:
+      - upload_data:/app/uploads
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: premium-share-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://psuser:pspassword@db:5432/premiumshare
+      SMTP_HOST: maildev
+      SMTP_PORT: '1025'
+      SMTP_FROM: noreply@premiumshare.demo
+      BUSINESS_MODE: DEMO
+      WORKER_ID: worker-1
+      NODE_ENV: production
+      FAMILY_AUTOMATION_MODE: DEMO
+      AUTHORIZED_BROWSER_ENABLED: 'false'
+    depends_on:
+      db:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+
+  mock-family-admin:
+    image: node:20-alpine
+    container_name: premium-share-mock-family
+    working_dir: /app
+    volumes:
+      - ./apps/family-runner:/app/apps/family-runner
+      - ./package.json:/app/package.json
+      - ./node_modules:/app/node_modules
+    environment:
+      MOCK_FAMILY_ADMIN_PORT: '3100'
+    command: npx tsx apps/family-runner/src/mock-admin/server.ts
+    ports:
+      - '3100:3100'
+    restart: unless-stopped
+
+  family-runner:
+    build:
+      context: .
+      dockerfile: apps/family-runner/Dockerfile
+    container_name: premium-share-family-runner
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://psuser:pspassword@db:5432/premiumshare
+      FAMILY_AUTOMATION_MODE: DEMO
+      AUTHORIZED_BROWSER_ENABLED: 'false'
+      MOCK_FAMILY_ADMIN_URL: http://mock-family-admin:3100
+      FAMILY_RUNNER_ID: family-runner-1
+      BUSINESS_MODE: DEMO
+    depends_on:
+      db:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+      mock-family-admin:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  upload_data:

@@ -1,0 +1,16 @@
+account_id,email,status,family_group_id,role,joined_at,updated_at
+acc-001,alice@gmail.com,PAID,grp-001,MANAGER,2026-01-10T09:00:00Z,2026-01-10T09:00:00Z
+acc-002,bob@gmail.com,PAID,grp-001,MEMBER,2026-01-11T10:00:00Z,2026-01-11T10:00:00Z
+acc-003,carol@gmail.com,PAID,grp-001,MEMBER,2026-01-12T11:00:00Z,2026-01-12T11:00:00Z
+acc-004,dave@gmail.com,PAID,grp-001,MEMBER,2026-01-13T12:00:00Z,2026-01-13T12:00:00Z
+acc-005,eve@gmail.com,REFUNDED,grp-001,MEMBER,2026-02-01T08:00:00Z,2026-09-01T08:00:00Z
+acc-006,frank@gmail.com,PAID,grp-002,MANAGER,2026-02-15T09:00:00Z,2026-02-15T09:00:00Z
+acc-007,grace@gmail.com,PAID,grp-002,MEMBER,2026-02-16T10:00:00Z,2026-02-16T10:00:00Z
+acc-008,henry@gmail.com,PAID,grp-002,MEMBER,2026-02-17T11:00:00Z,2026-02-17T11:00:00Z
+acc-009,iris@gmail.com,REFUNDED,grp-002,MANAGER,2026-03-01T09:00:00Z,2026-09-10T09:00:00Z
+acc-010,jack@gmail.com,PAID,,,,
+acc-011,kate@gmail.com,PAID,,,,
+acc-012,leo@gmail.com,PAID,,,2025-10-01T09:00:00Z,2026-08-01T09:00:00Z
+acc-013,mia@gmail.com,PENDING,,,,
+acc-014,noah@gmail.com,EXPIRED,grp-003,MEMBER,2026-01-01T09:00:00Z,2026-04-01T09:00:00Z
+acc-015,olivia@gmail.com,PAID,,,,
