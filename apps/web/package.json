@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
+    "build:vercel": "node scripts/vercel-build.mjs",
     "start": "next start",
     "dev:unified": "tsx watch server.ts",
     "start:unified": "node dist/server.js",

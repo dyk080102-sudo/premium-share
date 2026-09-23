@@ -11,8 +11,11 @@
 
 1. [vercel.com](https://vercel.com)에서 GitHub 저장소를 Import
 2. Framework Preset: **Next.js**
-3. Root Directory: 저장소 루트 (비워 두세요)
-4. 아래 환경변수를 설정합니다.
+3. **Root Directory**
+   - 권장: 비워 두기 (저장소 루트)
+   - `apps/web`으로 설정해도 동작합니다 (`apps/web/vercel.json`이 monorepo 루트로 올라가 설치·빌드)
+4. Build Command / Install Command는 `vercel.json` 값을 그대로 사용 (Override 하지 마세요)
+5. 아래 환경변수를 설정합니다.
 
 | 변수 | 필수 | 설명 |
 |------|------|------|

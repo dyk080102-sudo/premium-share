@@ -14,7 +14,8 @@
     "dev:worker": "npm run dev --workspace=apps/worker",
     "dev:family-runner": "npm run dev --workspace=apps/family-runner",
     "dev:mock-family": "npm run dev:mock --workspace=apps/family-runner",
-    "build": "npm run build --workspace=apps/web",
+    "build": "node scripts/vercel-build.mjs",
+    "build:web": "npm run build --workspace=apps/web",
     "start": "npm run start --workspace=apps/web",
     "db:generate": "npx prisma generate --schema=packages/domain/prisma/schema.prisma",
     "db:migrate": "npx prisma migrate deploy --schema=packages/domain/prisma/schema.prisma",
@@ -30,7 +31,7 @@
     "lint": "eslint apps/web/src packages/domain/src",
     "typecheck": "tsc --noEmit -p apps/web/tsconfig.json",
     "type-check": "tsc --noEmit -p apps/web/tsconfig.json",
-    "postinstall": "npx prisma generate --schema=packages/domain/prisma/schema.prisma"
+    "postinstall": "node -e \"const fs=require('fs');const p='packages/domain/prisma/schema.prisma';if(fs.existsSync(p)){require('child_process').execSync('npx prisma generate --schema='+p,{stdio:'inherit'})}else{console.log('[postinstall] skip prisma generate (schema not found from cwd)')}\""
   },
   "devDependencies": {
     "typescript": "^5.4.0",
