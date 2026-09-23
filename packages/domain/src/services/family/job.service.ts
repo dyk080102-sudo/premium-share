@@ -256,12 +256,10 @@ export class FamilyJobService {
     const job = await this.db.familyJob.findUnique({ where: { id: jobId } })
     if (!job) throw new Error('작업을 찾을 수 없습니다.')
     if (
-      ![
-        FamilyJobStatus.FAILED,
-        FamilyJobStatus.CANCELLED,
-        FamilyJobStatus.AWAITING_HUMAN,
-        FamilyJobStatus.EXTERNAL_RESULT_UNKNOWN,
-      ].includes(job.status)
+      job.status !== FamilyJobStatus.FAILED &&
+      job.status !== FamilyJobStatus.CANCELLED &&
+      job.status !== FamilyJobStatus.AWAITING_HUMAN &&
+      job.status !== FamilyJobStatus.EXTERNAL_RESULT_UNKNOWN
     ) {
       throw new Error('재시도 가능한 상태가 아닙니다.')
     }

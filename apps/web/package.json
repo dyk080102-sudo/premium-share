@@ -39,7 +39,9 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@radix-ui/react-tooltip": "^1.0.7",
     "date-fns": "^3.6.0",
-    "node-cron": "^3.0.3",
+    "node-cron": "^3.0.3"
+  },
+  "optionalDependencies": {
     "playwright": "^1.44.0"
   },
   "devDependencies": {
@@ -56,7 +58,6 @@
     "vitest": "^1.6.0",
     "@vitejs/plugin-react": "^4.3.0",
     "prisma": "^5.14.0",
-    "@types/nodemailer": "^6.4.15",
     "@types/node-cron": "^3.0.11",
     "tsx": "^4.7.0"
   }

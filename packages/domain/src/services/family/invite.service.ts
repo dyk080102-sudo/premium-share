@@ -46,9 +46,8 @@ export class FamilyInviteService {
       throw new Error('배정이 해당 그룹에 속하지 않습니다.')
     }
     if (
-      ![AllocationStatus.RESERVED, AllocationStatus.INVITED].includes(
-        allocation.status,
-      )
+      allocation.status !== AllocationStatus.RESERVED &&
+      allocation.status !== AllocationStatus.INVITED
     ) {
       throw new Error('초대 가능한 배정 상태가 아닙니다.')
     }

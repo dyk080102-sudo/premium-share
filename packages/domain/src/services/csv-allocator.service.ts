@@ -234,7 +234,7 @@ export class CsvAllocatorService {
     const groups = this._buildGroupMap(accounts)
     const vacancies: GroupVacancy[] = []
 
-    for (const [groupId, grp] of groups.entries()) {
+    for (const [groupId, grp] of Array.from(groups.entries())) {
       const memberCount = grp.memberIds.length
       const vacancy = Math.max(0, MAX_MEMBERS_PER_GROUP - memberCount)
 

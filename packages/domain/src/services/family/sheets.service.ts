@@ -1,4 +1,4 @@
-import { PrismaClient, BusinessSource } from '@prisma/client'
+import { PrismaClient, BusinessSource, Prisma } from '@prisma/client'
 
 /**
  * Sheets 연동용 Outbox 이벤트.
@@ -69,7 +69,7 @@ export class FamilySheetsService {
         subject: `Family automation: ${params.eventType}`,
         content: JSON.stringify(safe),
         templateKey: 'family_sheets_event',
-        variables: safe,
+        variables: safe as Prisma.InputJsonValue,
         status: 'PENDING',
         source: BusinessSource.DEMO,
       },
