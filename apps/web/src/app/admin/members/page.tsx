@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import prisma from '@/lib/db/prisma'
 import { formatDateTime } from '@/lib/utils'
 import Link from 'next/link'
+import { MemberPermissionsControls } from './MemberPermissionsControls'
 
 export default async function AdminMembersPage({
   searchParams,
@@ -55,22 +56,32 @@ export default async function AdminMembersPage({
     SUPER_ADMIN: '관리자',
   }
 
-  const ROLE_CLASS: Record<string, string> = {
-    MEMBER: 'bg-gray-100 text-gray-800',
-    SUPPORT: 'bg-blue-100 text-blue-800',
-    OPERATOR: 'bg-purple-100 text-purple-800',
-    SUPER_ADMIN: 'bg-red-100 text-red-800',
-  }
+  const canEditRole = user.role === 'SUPER_ADMIN'
+  const canEditActive = ['SUPER_ADMIN', 'OPERATOR'].includes(user.role)
+
+  const queryBase = [
+    role ? `role=${role}` : '',
+    q ? `q=${encodeURIComponent(q)}` : '',
+  ]
+    .filter(Boolean)
+    .join('&')
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">회원 관리</h1>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold">회원 관리</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {canEditRole
+              ? '역할·활성 상태를 변경하면 즉시 사이트 접근 권한에 반영됩니다.'
+              : '활성/비활성만 변경할 수 있습니다. 역할 변경은 최고 관리자만 가능합니다.'}
+          </p>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 items-center">
+      <div className="flex gap-3 items-center flex-wrap">
         <form className="flex gap-2">
+          {role && <input type="hidden" name="role" value={role} />}
           <input
             name="q"
             defaultValue={q}
@@ -83,7 +94,12 @@ export default async function AdminMembersPage({
           {['', 'MEMBER', 'OPERATOR', 'SUPPORT', 'SUPER_ADMIN'].map((r) => (
             <Link
               key={r || 'all'}
-              href={r ? `/admin/members?role=${r}${q ? `&q=${q}` : ''}` : '/admin/members'}
+              href={`/admin/members?${[
+                r ? `role=${r}` : '',
+                q ? `q=${encodeURIComponent(q)}` : '',
+              ]
+                .filter(Boolean)
+                .join('&')}`}
               className={`rounded-md px-3 py-1.5 text-xs font-medium border ${
                 (role ?? '') === r ? 'bg-primary text-white border-primary' : 'bg-card border-border hover:bg-muted'
               }`}
@@ -101,8 +117,7 @@ export default async function AdminMembersPage({
           <thead className="bg-muted/50">
             <tr>
               <th className="text-left px-4 py-3 font-medium">이메일</th>
-              <th className="text-center px-4 py-3 font-medium">역할</th>
-              <th className="text-center px-4 py-3 font-medium">상태</th>
+              <th className="text-center px-4 py-3 font-medium">권한 / 상태</th>
               <th className="text-center px-4 py-3 font-medium">주문</th>
               <th className="text-center px-4 py-3 font-medium">구독</th>
               <th className="text-right px-4 py-3 font-medium">가입일</th>
@@ -118,12 +133,16 @@ export default async function AdminMembersPage({
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_CLASS[member.role] ?? 'bg-gray-100 text-gray-800'}`}>
-                    {ROLE_LABEL[member.role] ?? member.role}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span className={`inline-flex h-2 w-2 rounded-full ${member.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <MemberPermissionsControls
+                    memberId={member.id}
+                    memberEmail={member.email}
+                    initialRole={member.role}
+                    initialIsActive={member.isActive}
+                    isLocked={Boolean(member.lockedUntil && member.lockedUntil > new Date())}
+                    canEditRole={canEditRole}
+                    canEditActive={canEditActive}
+                    isSelf={member.id === user.id}
+                  />
                 </td>
                 <td className="px-4 py-3 text-center">{member._count.orders}</td>
                 <td className="px-4 py-3 text-center">{member._count.subscriptions}</td>
@@ -141,7 +160,7 @@ export default async function AdminMembersPage({
           {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((p) => (
             <Link
               key={p}
-              href={`/admin/members?${role ? `role=${role}&` : ''}${q ? `q=${q}&` : ''}page=${p}`}
+              href={`/admin/members?${queryBase}${queryBase ? '&' : ''}page=${p}`}
               className={`rounded px-3 py-1.5 text-sm ${p === page ? 'bg-primary text-white' : 'border hover:bg-muted'}`}
             >
               {p}
