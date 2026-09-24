@@ -194,7 +194,39 @@ Next/Vercel은 배포마다 번들 해시가 바뀌어 대부분 자동 반영�
 7. 문제 시 Vercel Rollback + (필요 시) DB 스냅샷 복구
 ```
 
-## 7. Production 반영이 Preview에만 올라간 경우
+## 8. 현재 Production 장애: DATABASE_URL 미설정
+
+`/api/health` 가 아래처럼 나오면 Vercel 환경변수가 비어 있는 상태입니다.
+
+```json
+{ "ok": false, "hasDatabaseUrl": false, "db": { "connected": false } }
+```
+
+### 즉시 조치 (Vercel 대시보드)
+
+1. https://vercel.com/preshare/premium-share-web → **Settings → Environment Variables**
+2. Production / Preview 모두에 추가:
+
+| Key | Value |
+|-----|--------|
+| `DATABASE_URL` | Postgres 연결 URL (Neon/Supabase/Railway 등) |
+| `NEXTAUTH_URL` | `https://premium-share-web-eta.vercel.app` |
+| `APP_URL` | `https://premium-share-web-eta.vercel.app` |
+| `NEXTAUTH_SECRET` | 32자 이상 랜덤 문자열 |
+| `BUSINESS_MODE` | `MANUAL` |
+| `PAYMENT_PROVIDER` | `manual` |
+| `CRON_SECRET` | (권장) 랜덤 문자열 |
+
+3. **Deployments → 최신 Production → Redeploy** (환경변수 적용)
+4. 로컬에서 한 번 마이그레이션·시드:
+
+```bash
+export DATABASE_URL="(위에서 넣은 프로덕션 URL)"
+npx prisma migrate deploy --schema=packages/domain/prisma/schema.prisma
+npx tsx packages/domain/prisma/seed.ts   # 최초 1회만
+```
+
+5. 확인: `https://premium-share-web-eta.vercel.app/api/health` → `"ok": true`
 
 `main` push 후 GitHub Deployments에 **Preview**만 생기고  
 `https://premium-share-web-eta.vercel.app` 이 옛 버전일 수 있습니다.
