@@ -194,7 +194,26 @@ Next/Vercel은 배포마다 번들 해시가 바뀌어 대부분 자동 반영�
 7. 문제 시 Vercel Rollback + (필요 시) DB 스냅샷 복구
 ```
 
-## 6. 장애 점검
+## 7. Production 반영이 Preview에만 올라간 경우
+
+`main` push 후 GitHub Deployments에 **Preview**만 생기고  
+`https://premium-share-web-eta.vercel.app` 이 옛 버전일 수 있습니다.
+
+Vercel 대시보드에서 수동 Promote:
+
+1. https://vercel.com/preshare/premium-share-web 접속
+2. **Deployments** → 최신 성공 배포 (커밋 메시지에 Production 전환/cron 관련)
+3. 오른쪽 **⋯ → Promote to Production**
+4. Environment Variables 확인:
+   - `DATABASE_URL` (Postgres)
+   - `NEXTAUTH_URL`=`https://premium-share-web-eta.vercel.app`
+   - `APP_URL`=동일
+   - `NEXTAUTH_SECRET` (32자+)
+   - `BUSINESS_MODE`=`MANUAL`
+5. 배포 후 `https://premium-share-web-eta.vercel.app/api/health` → `"ok": true`
+
+Preview SSO(Deployment Protection)이 켜져 있으면 외부에서 Preview URL 테스트가 막힙니다.  
+Production Promote 후 공개 URL로 확인하세요.
 
 ```bash
 curl -sS https://YOUR_DOMAIN/api/health | jq
@@ -203,5 +222,7 @@ curl -sS https://YOUR_DOMAIN/api/health | jq
 `ok: true` 이고 `db.connected: true` 여야 API/상품/로그인이 정상입니다.  
 `ok: false` 이면 Vercel Environment Variables의 `DATABASE_URL`과 Prisma 마이그레이션을 확인하세요.
 
-백그라운드 작업(주문 만료·대기열·메일)은 Vercel Cron `/api/cron/tick` (5분)으로 실행됩니다.  
-`CRON_SECRET` 설정을 권장합니다.
+백그라운드 작업(주문 만료·대기열·메일)은 Vercel Cron `/api/cron/tick` 으로 실행됩니다.  
+Hobby 플랜은 **하루 1회** cron만 허용하므로 기본 스케줄은 `0 12 * ** *(UTC 12:00)`입니다.  
+더 자주 돌리려면 Pro 플로 업그레이드하거나, 외부 크론이 `Authorization: Bearer $CRON_SECRET` 으로  
+`GET /api/cron/tick` 을 호출하면 됩니다.
