@@ -194,4 +194,14 @@ Next/Vercel은 배포마다 번들 해시가 바뀌어 대부분 자동 반영�
 7. 문제 시 Vercel Rollback + (필요 시) DB 스냅샷 복구
 ```
 
-더 자세한 상용 설정은 [`docs/PRODUCTION.md`](docs/PRODUCTION.md) 를 참고하세요.
+## 6. 장애 점검
+
+```bash
+curl -sS https://YOUR_DOMAIN/api/health | jq
+```
+
+`ok: true` 이고 `db.connected: true` 여야 API/상품/로그인이 정상입니다.  
+`ok: false` 이면 Vercel Environment Variables의 `DATABASE_URL`과 Prisma 마이그레이션을 확인하세요.
+
+백그라운드 작업(주문 만료·대기열·메일)은 Vercel Cron `/api/cron/tick` (5분)으로 실행됩니다.  
+`CRON_SECRET` 설정을 권장합니다.
