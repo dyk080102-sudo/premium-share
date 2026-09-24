@@ -1,10 +1,10 @@
 import { PrismaClient, UserRole, ReviewStatus, AllocationStatus } from '@prisma/client'
-import argon2 from 'argon2'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
 async function hashPw(pw: string) {
-  return argon2.hash(pw, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 4 })
+  return bcrypt.hash(pw, 12)
 }
 
 async function main() {

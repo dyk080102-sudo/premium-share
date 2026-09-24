@@ -4,7 +4,7 @@ const nextConfig = {
   // (packages/domain/package.json points "main" to ./src/index.ts directly).
   transpilePackages: ['@premium-share/domain'],
   experimental: {
-    serverComponentsExternalPackages: ['argon2', '@prisma/client', 'prisma'],
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma', 'bcryptjs'],
   },
   poweredByHeader: false,
   async headers() {
