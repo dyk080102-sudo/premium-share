@@ -49,7 +49,7 @@ function ResetPasswordForm() {
       const res = await fetch('/api/auth/reset-password/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword: password }),
+        body: JSON.stringify({ token, password }),
       })
       const data = await res.json()
       if (data.success) {

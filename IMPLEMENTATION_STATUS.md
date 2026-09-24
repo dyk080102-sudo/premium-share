@@ -196,10 +196,21 @@ _Updated: 2026-09-23_
 |------|------|
 | HTML 이메일 템플릿 | 현재 텍스트 기반, 렌더링은 작동 |
 | 파일 첨부 API | Ticket 첨부 파일 업로드 미구현 |
-| 웨이팅리스트 UI 페이지 | `/api/waitlist` API 미구현 (도메인 서비스는 구현됨) |
+| 실 결제 PG (Toss/Nice 등) | `PaymentProvider` 스텁만 준비. MANUAL 무통장으로 운영 |
 | 실 Google/YouTube Family UI 연동 | **미검증**. AUTHORIZED_BROWSER 잠금. DEMO mock만 자동 클릭 |
 
+### 2026-09-24 Production conversion
+- [x] `BUSINESS_MODE` 기본 MANUAL · Docker/ENV 반영
+- [x] 정적 localStorage 데모 → `demos/static-github-pages/`
+- [x] Payment depositorName/provider/externalId + PG enum
+- [x] `PaymentProvider` 스텁 + `/api/payments/webhook` 501
+- [x] 입금 신고 페이지 `/orders/[id]/payment` + 계좌 AppSetting 연동
+- [x] 비밀번호 변경/재설정 필드 불일치 수정
+- [x] CSRF Origin · CSP · rate limit · Toast
+- [x] Waitlist API + `/waitlist` 회원 페이지
+
 _이전에 미구현으로 보고된 `admin/bank-import/[id]`, `admin/refunds/[id]`는 2026-09-23에 추가 완료됨._
+_웨이팅리스트 UI/API는 2026-09-24에 추가됨._
 
 ---
 

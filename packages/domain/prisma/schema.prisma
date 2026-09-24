@@ -173,6 +173,7 @@ enum JobStatus {
 enum BusinessSource {
   DEMO
   MANUAL
+  PG
 }
 
 enum FamilyAutomationMode {
@@ -497,7 +498,7 @@ model Order {
   priceKrwSnapshot      Int
   policyVersionSnapshot Json?
   status                OrderStatus @default(PENDING_PAYMENT)
-  source                BusinessSource @default(DEMO)
+  source                BusinessSource @default(MANUAL)
   expiresAt             DateTime
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
@@ -519,24 +520,33 @@ model Order {
 }
 
 model Payment {
-  id              String         @id @default(cuid())
-  orderId         String
-  amountKrw       Int
-  status          PaymentStatus  @default(PENDING)
-  source          BusinessSource @default(DEMO)
-  confirmedAt     DateTime?
-  confirmedBy     String?
-  confirmNotes    String?
-  idempotencyKey  String         @unique
-  createdAt       DateTime       @default(now())
+  id                String         @id @default(cuid())
+  orderId           String
+  amountKrw         Int
+  status            PaymentStatus  @default(PENDING)
+  source            BusinessSource @default(MANUAL)
+  /// Future PG provider key (e.g. toss, nice). Null for MANUAL/DEMO.
+  provider          String?
+  /// External payment / transaction id from PG or bank match.
+  externalPaymentId String?
+  /// Bank-transfer depositor name for MANUAL matching.
+  depositorName     String?
+  notes             String?
+  confirmedAt       DateTime?
+  confirmedBy       String?
+  confirmNotes      String?
+  idempotencyKey    String         @unique
+  createdAt         DateTime       @default(now())
 
-  order           Order          @relation(fields: [orderId], references: [id])
-  bankTransactions BankTransaction[]
-  refunds         Refund[]
+  order             Order          @relation(fields: [orderId], references: [id])
+  bankTransactions  BankTransaction[]
+  refunds           Refund[]
   subscriptionPeriods SubscriptionPeriod[]
 
   @@index([orderId])
   @@index([status])
+  @@index([depositorName])
+  @@index([externalPaymentId])
   @@map("payments")
 }
 

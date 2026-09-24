@@ -224,15 +224,37 @@ export class PaymentService {
     for (const tx of bankImport.transactions) {
       if (tx.matchStatus !== MatchStatus.UNMATCHED) continue
 
-      // Try to match by amount and depositor
-      const pendingPayment = await this.db.payment.findFirst({
+      // Prefer amount + depositor name; fall back to amount-only
+      const depositor = (tx.depositorName || '').trim()
+      let pendingPayment = await this.db.payment.findFirst({
         where: {
           status: PaymentStatus.PENDING,
           source: BusinessSource.MANUAL,
-          order: { priceKrwSnapshot: tx.amountKrw },
+          amountKrw: tx.amountKrw,
+          ...(depositor
+            ? {
+                OR: [
+                  { depositorName: { equals: depositor, mode: 'insensitive' } },
+                  { depositorName: null },
+                ],
+              }
+            : {}),
         },
+        orderBy: { createdAt: 'asc' },
         include: { order: true },
       })
+
+      if (!pendingPayment) {
+        pendingPayment = await this.db.payment.findFirst({
+          where: {
+            status: PaymentStatus.PENDING,
+            source: BusinessSource.MANUAL,
+            amountKrw: tx.amountKrw,
+          },
+          orderBy: { createdAt: 'asc' },
+          include: { order: true },
+        })
+      }
 
       if (pendingPayment) {
         await this.db.bankTransaction.update({
@@ -242,6 +264,12 @@ export class PaymentService {
             matchedPaymentId: pendingPayment.id,
           },
         })
+        if (!pendingPayment.depositorName && depositor) {
+          await this.db.payment.update({
+            where: { id: pendingPayment.id },
+            data: { depositorName: depositor },
+          })
+        }
         matched++
       } else {
         unmatched++

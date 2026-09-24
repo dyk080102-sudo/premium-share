@@ -56,7 +56,7 @@ services:
     container_name: premium-share-migration
     environment:
       DATABASE_URL: postgresql://psuser:pspassword@db:5432/premiumshare
-      BUSINESS_MODE: DEMO
+      BUSINESS_MODE: MANUAL
     command: >
       sh -c "npx prisma migrate deploy --schema=packages/domain/prisma/schema.prisma &&
              npx tsx packages/domain/prisma/seed.ts"
@@ -80,7 +80,7 @@ services:
       SMTP_HOST: maildev
       SMTP_PORT: '1025'
       SMTP_FROM: noreply@premiumshare.demo
-      BUSINESS_MODE: DEMO
+      BUSINESS_MODE: MANUAL
       NODE_ENV: production
     depends_on:
       db:
@@ -103,7 +103,7 @@ services:
       SMTP_HOST: maildev
       SMTP_PORT: '1025'
       SMTP_FROM: noreply@premiumshare.demo
-      BUSINESS_MODE: DEMO
+      BUSINESS_MODE: MANUAL
       WORKER_ID: worker-1
       NODE_ENV: production
       FAMILY_AUTOMATION_MODE: DEMO
@@ -141,7 +141,7 @@ services:
       AUTHORIZED_BROWSER_ENABLED: 'false'
       MOCK_FAMILY_ADMIN_URL: http://mock-family-admin:3100
       FAMILY_RUNNER_ID: family-runner-1
-      BUSINESS_MODE: DEMO
+      BUSINESS_MODE: MANUAL
     depends_on:
       db:
         condition: service_healthy

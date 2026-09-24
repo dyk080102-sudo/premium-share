@@ -1,5 +1,18 @@
 export { OrderService } from './services/order.service'
 export { PaymentService } from './services/payment.service'
+export {
+  StubPgPaymentProvider,
+  PaymentProviderNotImplementedError,
+  createPaymentProviderStub,
+  resolvePaymentProviderKind,
+} from './services/payment-provider'
+export type {
+  PaymentProvider,
+  PaymentProviderKind,
+  PaymentCheckoutResult,
+  PaymentWebhookResult,
+  PaymentRefundResult,
+} from './services/payment-provider'
 export { AllocationService } from './services/allocation.service'
 export { SubscriptionService } from './services/subscription.service'
 export { InvitationService } from './services/invitation.service'

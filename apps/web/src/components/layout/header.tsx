@@ -48,6 +48,9 @@ export function Header({ user, isDemoMode }: HeaderProps) {
                 <Link href="/orders" className="text-foreground/60 hover:text-foreground transition-colors">
                   주문
                 </Link>
+                <Link href="/waitlist" className="text-foreground/60 hover:text-foreground transition-colors">
+                  대기열
+                </Link>
                 {(user.role === 'SUPER_ADMIN' || user.role === 'OPERATOR' || user.role === 'SUPPORT') && (
                   <Link href="/admin" className="text-foreground/60 hover:text-foreground transition-colors font-semibold">
                     관리자

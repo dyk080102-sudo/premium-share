@@ -655,7 +655,8 @@ async function main() {
     { key: 'order.expire_hours', value: '24', description: '주문 만료 시간 (시간)' },
     { key: 'login.max_attempts', value: '5', description: '최대 로그인 시도 횟수' },
     { key: 'login.lock_minutes', value: '15', description: '계정 잠금 시간 (분)' },
-    { key: 'bank.account', value: '000-0000-0000 (데모)', description: '입금 계좌번호' },
+    { key: 'bank.name', value: '국민은행', description: '입금 은행명' },
+    { key: 'bank.account', value: '000-0000-0000', description: '입금 계좌번호' },
     { key: 'bank.account_holder', value: '(주)프리미엄쉐어', description: '예금주' },
   ]
 

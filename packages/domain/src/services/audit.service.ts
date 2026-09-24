@@ -38,7 +38,9 @@ export class AuditService {
         beforeJson: params.before ? (params.before as object) : undefined,
         afterJson: params.after ? (params.after as object) : undefined,
         reason: params.reason,
-        source: params.source ?? BusinessSource.DEMO,
+        source:
+          params.source ??
+          (process.env.BUSINESS_MODE === 'DEMO' ? BusinessSource.DEMO : BusinessSource.MANUAL),
         requestId: params.requestId,
         ipAddress: params.ipAddress,
       },

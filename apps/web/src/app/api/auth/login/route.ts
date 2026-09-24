@@ -4,6 +4,7 @@ import prisma from '@/lib/db/prisma'
 import { verifyPassword } from '@/lib/auth/password'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { apiError, getClientIp } from '@/lib/utils'
+import { assertSameOrigin, checkRateLimit, CsrfError } from '@/lib/security'
 
 const MAX_LOGIN_ATTEMPTS = 5
 const LOCK_DURATION_MS = 15 * 60 * 1000 // 15 minutes
@@ -15,6 +16,14 @@ const loginSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    assertSameOrigin(request)
+
+    const ip = getClientIp(request)
+    const rate = checkRateLimit(`login:${ip}`, 20, 60_000)
+    if (!rate.ok) {
+      return apiError(`요청이 너무 많습니다. ${rate.retryAfterSec}초 후 다시 시도하세요.`, 429)
+    }
+
     const body = await request.json()
     const parsed = loginSchema.safeParse(body)
 
@@ -34,7 +43,6 @@ export async function POST(request: NextRequest) {
       return apiError('비활성화된 계정입니다. 관리자에게 문의하세요.', 403)
     }
 
-    // Check lockout
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
       return apiError(`계정이 잠겼습니다. ${minutesLeft}분 후 다시 시도하세요.`, 423)
@@ -61,13 +69,11 @@ export async function POST(request: NextRequest) {
       return apiError('이메일 또는 비밀번호가 올바르지 않습니다.', 401)
     }
 
-    // Reset login attempts on success
     await prisma.user.update({
       where: { id: user.id },
       data: { loginAttempts: 0, lockedUntil: null },
     })
 
-    const ip = getClientIp(request)
     const ua = request.headers.get('user-agent') ?? undefined
     const token = await createSession(user.id, ip, ua)
 
@@ -87,6 +93,7 @@ export async function POST(request: NextRequest) {
 
     return response
   } catch (error) {
+    if (error instanceof CsrfError) return apiError(error.message, 403, 'CSRF')
     console.error('Login error:', error)
     return apiError('서버 오류가 발생했습니다.', 500)
   }

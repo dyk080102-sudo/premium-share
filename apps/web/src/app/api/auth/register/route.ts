@@ -4,6 +4,7 @@ import prisma from '@/lib/db/prisma'
 import { hashPassword, validatePasswordStrength } from '@/lib/auth/password'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { apiError, getClientIp } from '@/lib/utils'
+import { assertSameOrigin, checkRateLimit, CsrfError } from '@/lib/security'
 
 const registerSchema = z.object({
   email: z.string().email('유효한 이메일을 입력하세요.'),
@@ -12,6 +13,14 @@ const registerSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    assertSameOrigin(request)
+
+    const ip = getClientIp(request)
+    const rate = checkRateLimit(`register:${ip}`, 10, 60_000)
+    if (!rate.ok) {
+      return apiError(`요청이 너무 많습니다. ${rate.retryAfterSec}초 후 다시 시도하세요.`, 429)
+    }
+
     const body = await request.json()
     const parsed = registerSchema.safeParse(body)
 
@@ -21,13 +30,11 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = parsed.data
 
-    // Check password strength
     const strength = validatePasswordStrength(password)
     if (!strength.valid) {
       return apiError(strength.message!, 400)
     }
 
-    // Check if email already exists
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       return apiError('이미 사용 중인 이메일입니다.', 409)
@@ -40,7 +47,6 @@ export async function POST(request: NextRequest) {
       select: { id: true, email: true, role: true },
     })
 
-    const ip = getClientIp(request)
     const ua = request.headers.get('user-agent') ?? undefined
     const token = await createSession(user.id, ip, ua)
 
@@ -54,6 +60,7 @@ export async function POST(request: NextRequest) {
 
     return response
   } catch (error) {
+    if (error instanceof CsrfError) return apiError(error.message, 403, 'CSRF')
     console.error('Register error:', error)
     return apiError('서버 오류가 발생했습니다.', 500)
   }

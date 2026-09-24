@@ -43,7 +43,9 @@ export class NotificationService {
         content: params.content,
         templateKey: params.templateKey,
         variables: params.variables ? JSON.parse(JSON.stringify(params.variables)) : undefined,
-        source: params.source ?? BusinessSource.DEMO,
+        source:
+          params.source ??
+          (process.env.BUSINESS_MODE === 'DEMO' ? BusinessSource.DEMO : BusinessSource.MANUAL),
         scheduledAt: params.scheduledAt ?? new Date(),
         status: OutboxStatus.PENDING,
       },

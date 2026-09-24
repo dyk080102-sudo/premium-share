@@ -3,10 +3,16 @@ import { z } from 'zod'
 import { requireAuth, AuthError } from '@/lib/auth/session'
 import prisma from '@/lib/db/prisma'
 import { apiError, generateIdempotencyKey } from '@/lib/utils'
+import { assertSameOrigin, CsrfError } from '@/lib/security'
+import { AuditService } from '@premium-share/domain'
 
 const schema = z.object({
-  depositorName: z.string().min(1, '입금자명을 입력하세요.'),
-  notes: z.string().optional(),
+  depositorName: z
+    .string()
+    .trim()
+    .min(1, '입금자명을 입력하세요.')
+    .max(40, '입금자명은 40자 이하여야 합니다.'),
+  notes: z.string().trim().max(200).optional(),
 })
 
 export async function POST(
@@ -14,6 +20,7 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
+    assertSameOrigin(request)
     const user = await requireAuth()
     const body = await request.json()
     const parsed = schema.safeParse(body)
@@ -24,7 +31,6 @@ export async function POST(
     if (order.userId !== user.id) return apiError('접근 권한이 없습니다.', 403)
     if (order.status !== 'PENDING_PAYMENT') return apiError('결제 대기 상태가 아닙니다.', 400)
 
-    // Check existing payment
     const existingPayment = await prisma.payment.findFirst({
       where: { orderId: order.id, status: { not: 'CANCELLED' } },
     })
@@ -36,8 +42,25 @@ export async function POST(
         amountKrw: order.priceKrwSnapshot,
         status: 'PENDING',
         source: 'MANUAL',
+        provider: 'manual',
+        depositorName: parsed.data.depositorName,
+        notes: parsed.data.notes,
         idempotencyKey: generateIdempotencyKey(),
       },
+    })
+
+    const audit = new AuditService(prisma)
+    await audit.log({
+      actorId: user.id,
+      targetType: 'Payment',
+      targetId: payment.id,
+      action: 'BANK_TRANSFER_REPORTED',
+      after: {
+        orderId: order.id,
+        amountKrw: payment.amountKrw,
+        depositorName: payment.depositorName,
+      },
+      source: 'MANUAL',
     })
 
     return NextResponse.json(
@@ -49,6 +72,7 @@ export async function POST(
       { status: 201 },
     )
   } catch (error) {
+    if (error instanceof CsrfError) return apiError(error.message, 403, 'CSRF')
     if (error instanceof AuthError) {
       return apiError(error.message, error.code === 'UNAUTHORIZED' ? 401 : 403)
     }

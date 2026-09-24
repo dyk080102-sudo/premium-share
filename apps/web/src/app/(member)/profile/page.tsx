@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth/session'
 import prisma from '@/lib/db/prisma'
 import { formatDateTime } from '@/lib/utils'
+import { ChangePasswordForm } from '@/components/change-password-form'
 
 export default async function ProfilePage() {
   const user = await getCurrentUser()
@@ -39,7 +40,6 @@ export default async function ProfilePage() {
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-bold">내 프로필</h1>
 
-      {/* Profile Info */}
       <div className="rounded-lg border bg-card p-6 space-y-4">
         <h2 className="font-semibold">계정 정보</h2>
         <div className="grid gap-4 text-sm">
@@ -64,7 +64,6 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
           { label: '주문', value: fullUser._count.orders, href: '/orders' },
@@ -83,45 +82,9 @@ export default async function ProfilePage() {
         ))}
       </div>
 
-      {/* Password Change */}
       <div className="rounded-lg border bg-card p-6">
         <h2 className="font-semibold mb-4">비밀번호 변경</h2>
-        <form action="/api/auth/password" method="PATCH" className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">현재 비밀번호</label>
-            <input
-              type="password"
-              name="currentPassword"
-              required
-              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">새 비밀번호</label>
-            <input
-              type="password"
-              name="newPassword"
-              required
-              minLength={8}
-              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">새 비밀번호 확인</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              required
-              className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
-          >
-            비밀번호 변경
-          </button>
-        </form>
+        <ChangePasswordForm />
       </div>
     </div>
   )

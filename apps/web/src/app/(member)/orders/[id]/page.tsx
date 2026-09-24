@@ -4,6 +4,7 @@ import Link from 'next/link'
 import prisma from '@/lib/db/prisma'
 import { formatDate, formatDateTime, formatPrice } from '@/lib/utils'
 import { DemoPayButton } from '@/components/demo-pay-button'
+import { getBankAccountSettings } from '@/lib/security'
 
 const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING_PAYMENT: '결제 대기',
@@ -29,8 +30,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   if (!order || order.userId !== user.id) notFound()
 
   const isDemoMode = process.env.BUSINESS_MODE === 'DEMO'
-  const pendingPayment = order.payments.find((p) => p.status === 'PENDING')
-  const confirmedPayment = order.payments.find((p) => p.status === 'CONFIRMED')
+  const bank = isDemoMode ? null : await getBankAccountSettings()
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -39,7 +39,6 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         <h1 className="text-2xl font-bold">주문 상세</h1>
       </div>
 
-      {/* Order Info */}
       <div className="rounded-lg border bg-card p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">주문 정보</h2>
@@ -82,14 +81,13 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         </div>
       </div>
 
-      {/* Payment Section */}
       {order.status === 'PENDING_PAYMENT' && (
         <div className="rounded-lg border bg-yellow-50 border-yellow-200 p-6 space-y-4">
           <h2 className="font-semibold text-yellow-800">결제 안내</h2>
 
           {isDemoMode ? (
             <div className="space-y-3">
-              <p className="text-sm text-yellow-700">DEMO 모드: 가상 결제를 진행합니다.</p>
+              <p className="text-sm text-yellow-700">DEMO 모드: 가상 결제를 진행합니다. (상용에서는 비활성)</p>
               <DemoPayButton orderId={order.id} />
             </div>
           ) : (
@@ -98,33 +96,38 @@ export default async function OrderDetailPage({ params }: { params: { id: string
               <div className="bg-white rounded p-4 text-sm space-y-2 border border-yellow-200">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">은행</span>
-                  <span className="font-medium">국민은행</span>
+                  <span className="font-medium">{bank?.bankName}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">계좌번호</span>
-                  <span className="font-medium font-mono">000-00-000000</span>
+                  <span className="font-medium font-mono">{bank?.account}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">예금주</span>
-                  <span className="font-medium">PremiumShare</span>
+                  <span className="font-medium">{bank?.accountHolder}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">입금액</span>
                   <span className="font-bold text-primary">{formatPrice(order.priceKrwSnapshot)}</span>
                 </div>
               </div>
-              <Link
-                href={`/orders/${order.id}/payment`}
-                className="block w-full text-center rounded-md bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary/90"
-              >
-                입금 신고하기
-              </Link>
+              {order.payments.some((p) => p.status === 'PENDING') ? (
+                <p className="text-sm text-green-700">
+                  입금 신고가 접수되었습니다. 관리자 확인을 기다려 주세요.
+                </p>
+              ) : (
+                <Link
+                  href={`/orders/${order.id}/payment`}
+                  className="block w-full text-center rounded-md bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary/90"
+                >
+                  입금 신고하기
+                </Link>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* Payment History */}
       {order.payments.length > 0 && (
         <div className="rounded-lg border bg-card p-6">
           <h2 className="font-semibold mb-4">결제 내역</h2>
@@ -141,6 +144,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                      payment.status === 'PENDING' ? '확인 대기' :
                      payment.status === 'CANCELLED' ? '취소됨' : '환불됨'}
                   </span>
+                  {payment.depositorName && (
+                    <span className="ml-2 text-muted-foreground">입금자: {payment.depositorName}</span>
+                  )}
                   {payment.confirmedAt && (
                     <span className="ml-2 text-muted-foreground">{formatDateTime(payment.confirmedAt)}</span>
                   )}
@@ -152,7 +158,6 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         </div>
       )}
 
-      {/* Subscription Status */}
       {order.subscriptions.length > 0 && (
         <div className="rounded-lg border bg-card p-6">
           <h2 className="font-semibold mb-4">구독 현황</h2>
@@ -180,7 +185,6 @@ export default async function OrderDetailPage({ params }: { params: { id: string
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex gap-3">
         {order.status === 'CONFIRMED' && (
           <Link

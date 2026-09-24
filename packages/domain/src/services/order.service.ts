@@ -1,6 +1,10 @@
 import { PrismaClient, OrderStatus, BusinessSource } from '@prisma/client'
 import { AuditService } from './audit.service'
 
+function defaultBusinessSource(): BusinessSource {
+  return process.env.BUSINESS_MODE === 'DEMO' ? BusinessSource.DEMO : BusinessSource.MANUAL
+}
+
 export class OrderService {
   private audit: AuditService
 
@@ -41,7 +45,7 @@ export class OrderService {
         durationDaysSnapshot: plan.durationDays,
         priceKrwSnapshot: plan.priceKrw,
         status: OrderStatus.PENDING_PAYMENT,
-        source: params.source ?? BusinessSource.DEMO,
+        source: params.source ?? defaultBusinessSource(),
         expiresAt,
         idempotencyKey: params.idempotencyKey,
       },
@@ -53,7 +57,7 @@ export class OrderService {
       targetId: order.id,
       action: 'ORDER_CREATED',
       after: { status: order.status, priceKrw: order.priceKrwSnapshot },
-      source: params.source ?? BusinessSource.DEMO,
+      source: params.source ?? defaultBusinessSource(),
     })
 
     return order

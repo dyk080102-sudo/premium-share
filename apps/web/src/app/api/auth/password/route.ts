@@ -5,6 +5,7 @@ import { verifyPassword, hashPassword, validatePasswordStrength } from '@/lib/au
 import prisma from '@/lib/db/prisma'
 import { apiError } from '@/lib/utils'
 import { AuthError } from '@/lib/auth/session'
+import { assertSameOrigin, CsrfError } from '@/lib/security'
 
 const schema = z.object({
   currentPassword: z.string().min(1),
@@ -13,6 +14,7 @@ const schema = z.object({
 
 export async function PATCH(request: NextRequest) {
   try {
+    assertSameOrigin(request)
     const user = await requireAuth()
     const body = await request.json()
     const parsed = schema.safeParse(body)
@@ -30,11 +32,20 @@ export async function PATCH(request: NextRequest) {
     const passwordHash = await hashPassword(parsed.data.newPassword)
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash } })
 
-    // Invalidate all other sessions
+    // Invalidate all sessions — client must log in again
     await prisma.session.deleteMany({ where: { userId: user.id } })
 
-    return NextResponse.json({ success: true, message: '비밀번호가 변경되었습니다.' })
+    const response = NextResponse.json({ success: true, message: '비밀번호가 변경되었습니다.' })
+    response.cookies.set({
+      name: 'ps_session',
+      value: '',
+      httpOnly: true,
+      path: '/',
+      maxAge: 0,
+    })
+    return response
   } catch (error) {
+    if (error instanceof CsrfError) return apiError(error.message, 403, 'CSRF')
     if (error instanceof AuthError) {
       return apiError(error.message, error.code === 'UNAUTHORIZED' ? 401 : 403)
     }
