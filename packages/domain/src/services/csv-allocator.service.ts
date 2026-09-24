@@ -170,10 +170,12 @@ export class CsvAllocatorService {
    * Expected header: account_id,email,status,family_group_id,role,joined_at,updated_at
    */
   parseCsvContent(csvContent: string): CsvAccount[] {
-    const rows = parseCsv(csvContent)
+    // Strip UTF-8 BOM (common in Excel-exported CSV)
+    const normalized = csvContent.replace(/^\uFEFF/, '')
+    const rows = parseCsv(normalized)
     if (rows.length === 0) return []
 
-    const header = rows[0].map((h) => h.toLowerCase().trim())
+    const header = rows[0].map((h) => h.replace(/^\uFEFF/, '').toLowerCase().trim())
     const col = (name: string) => header.indexOf(name)
 
     const idxAccountId = col('account_id')
@@ -183,6 +185,12 @@ export class CsvAllocatorService {
     const idxRole = col('role')
     const idxJoinedAt = col('joined_at')
     const idxUpdatedAt = col('updated_at')
+
+    if (idxAccountId < 0 || idxEmail < 0) {
+      throw new Error(
+        'CSV 헤더에 account_id, email 컬럼이 필요합니다. (예: account_id,email,status,family_group_id,role,joined_at,updated_at)',
+      )
+    }
 
     const accounts: CsvAccount[] = []
 

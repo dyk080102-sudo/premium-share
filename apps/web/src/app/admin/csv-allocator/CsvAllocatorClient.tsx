@@ -253,11 +253,13 @@ function VacancyPanel({ vacancies, loading }: { vacancies: GroupVacancy[] | null
 
   if (vacancies === null) return null
 
+  const list = Array.isArray(vacancies) ? vacancies : []
+
   return (
     <div className="rounded-lg border bg-card p-6">
       <h2 className="font-semibold text-base mb-4">처리 전 그룹 현황</h2>
-      {vacancies.length === 0 ? (
-        <p className="text-sm text-muted-foreground">그룹 없음</p>
+      {list.length === 0 ? (
+        <p className="text-sm text-muted-foreground">그룹 없음 (또는 아직 family_group_id가 없는 계정만 있습니다)</p>
       ) : (
         <div className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
@@ -271,7 +273,7 @@ function VacancyPanel({ vacancies, loading }: { vacancies: GroupVacancy[] | null
               </tr>
             </thead>
             <tbody>
-              {vacancies.map((v) => {
+              {list.map((v) => {
                 const vacancyColor =
                   v.vacancy === 0
                     ? 'bg-red-100 text-red-800'
@@ -284,7 +286,7 @@ function VacancyPanel({ vacancies, loading }: { vacancies: GroupVacancy[] | null
                 return (
                   <tr key={v.groupId} className="border-t hover:bg-muted/30">
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{v.groupId}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{v.managerEmail}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{v.managerEmail ?? '—'}</td>
                     <td className="px-4 py-3 text-right">{v.currentMembers} / 5</td>
                     <td className="px-4 py-3 text-right">
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${vacancyColor}`}>
@@ -529,36 +531,39 @@ export default function CsvAllocatorClient() {
       return
     }
 
-    // Skip the GET preview if the CSV is too large to safely send via URL
-    // (matches the server-side MAX_CSV_QUERY_CHARS = 500 000 chars)
-    if (csvContent.length > 500_000) {
-      setVacancies([])
-      return
-    }
-
     let cancelled = false
     setVacancyLoading(true)
 
-    const encoded = encodeURIComponent(csvContent)
-    fetch(`/api/admin/csv-allocator?csv=${encoded}`)
+    fetch('/api/admin/csv-allocator', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csvContent, preview: true }),
+    })
       .then(async (res) => {
-        if (!res.ok) throw new Error(`그룹 현황 조회 실패: ${res.status}`)
-        const json = await res.json()
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || !json.success) {
+          throw new Error(json.error ?? `그룹 현황 조회 실패: ${res.status}`)
+        }
         if (!cancelled) {
-          setVacancies(json.data ?? json)
+          const groups = Array.isArray(json.data?.groups) ? json.data.groups : []
+          setVacancies(groups)
+          setError(null)
         }
       })
       .catch((err) => {
         if (!cancelled) {
           console.error(err)
           setVacancies([])
+          setError(err instanceof Error ? err.message : '그룹 현황 조회에 실패했습니다.')
         }
       })
       .finally(() => {
         if (!cancelled) setVacancyLoading(false)
       })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [csvContent])
 
   const handleCsvReady = useCallback((csv: string, file?: File) => {
@@ -599,13 +604,12 @@ export default function CsvAllocatorClient() {
         })
       }
 
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.success) {
         throw new Error(json.error ?? `서버 오류 (${res.status})`)
       }
 
-      const json = await res.json()
-      setResult(json.data ?? json)
+      setResult(json.data ?? null)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.')
     } finally {
