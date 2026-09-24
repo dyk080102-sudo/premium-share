@@ -11,8 +11,7 @@ uploads
 .DS_Store
 Thumbs.db
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
 apps/web/.next
 apps/web/dist
