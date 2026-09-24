@@ -24,11 +24,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const providerName = request.headers.get('x-payment-provider') ?? process.env.PAYMENT_PROVIDER ?? 'pg'
     const provider = createPaymentProviderStub('pg')
-    // Preserve provider name for error message clarity
-    void providerName
-
     const rawBody = await request.text()
     const headers: Record<string, string | undefined> = {}
     request.headers.forEach((value, key) => {

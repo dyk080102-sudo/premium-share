@@ -50,4 +50,27 @@ SMTP_PORT=...
 SMTP_FROM=...
 ```
 
-Seed creates bootstrap admin accounts for first login — rotate passwords immediately in production.
+## Verification (2026-09-24)
+
+Against local PostgreSQL with `BUSINESS_MODE=MANUAL`:
+
+```
+npm run db:migrate && npm run db:seed
+npm run verify:manual   # Order → ManualBankPaymentProvider → admin confirmPayment
+```
+
+HTTP checks (Next.js :3000):
+
+| Check | Result |
+|-------|--------|
+| Login (member/admin) | 200 success |
+| Create order | `source: MANUAL` |
+| `POST /api/demo/payment/simulate` | **405** |
+| Bank transfer report | PENDING + depositorName |
+| Admin confirm payment | CONFIRMED |
+| Member → `/api/admin/dashboard` | **403** |
+| Unauthenticated `/admin` | **307** → login |
+| `POST /api/payments/webhook` | **501** PG stub |
+| `/waitlist` | 200 |
+
+Unit tests: 15/15. `npm run typecheck` clean.

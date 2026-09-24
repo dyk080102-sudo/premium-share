@@ -27,6 +27,7 @@
     "test:e2e": "playwright test",
     "test:all": "npm run test:unit && npm run test:integration",
     "verify:flow": "node scripts/verify-flow.mjs",
+    "verify:manual": "npx tsx scripts/smoke-manual-flow.ts",
     "verify:full": "npm run test:unit && npm run test:integration && npm run verify:flow && npm run test:e2e",
     "lint": "eslint apps/web/src packages/domain/src",
     "typecheck": "tsc --noEmit -p apps/web/tsconfig.json",

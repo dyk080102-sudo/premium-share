@@ -71,7 +71,8 @@ export class FamilySheetsService {
         templateKey: 'family_sheets_event',
         variables: safe as Prisma.InputJsonValue,
         status: 'PENDING',
-        source: BusinessSource.DEMO,
+        source:
+          process.env.BUSINESS_MODE === 'DEMO' ? BusinessSource.DEMO : BusinessSource.MANUAL,
       },
     })
   }

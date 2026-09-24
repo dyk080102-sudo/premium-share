@@ -22,7 +22,8 @@
 | `DATABASE_URL` | 필수 | PostgreSQL 연결 문자열 (Neon, Supabase, Railway 등) |
 | `NEXTAUTH_SECRET` | 필수 | 세션 서명 키 (32자 이상 랜덤 문자열) |
 | `NEXTAUTH_URL` | 필수 | 배포 URL. 예: `https://your-domain.com` |
-| `BUSINESS_MODE` | 권장 | `DEMO` 또는 `MANUAL` |
+| `BUSINESS_MODE` | 권장 | 상용: `MANUAL` (기본). 로컬 시뮬만 `DEMO` |
+| `PAYMENT_PROVIDER` | 선택 | `manual`(기본) · `pg`(스텁, 미구현) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_FROM` | 선택 | 실제 메일 발송 시 |
 
 5. 첫 배포 후 **Vercel CLI 또는 대시보드**에서 마이그레이션과 시드를 한 번 실행해야 합니다.

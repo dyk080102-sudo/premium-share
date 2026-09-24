@@ -2,7 +2,10 @@ export { OrderService } from './services/order.service'
 export { PaymentService } from './services/payment.service'
 export {
   StubPgPaymentProvider,
+  ManualBankPaymentProvider,
+  DemoPaymentProvider,
   PaymentProviderNotImplementedError,
+  createPaymentProvider,
   createPaymentProviderStub,
   resolvePaymentProviderKind,
 } from './services/payment-provider'

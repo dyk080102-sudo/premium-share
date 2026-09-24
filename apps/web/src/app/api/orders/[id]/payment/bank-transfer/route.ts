@@ -4,7 +4,7 @@ import { requireAuth, AuthError } from '@/lib/auth/session'
 import prisma from '@/lib/db/prisma'
 import { apiError, generateIdempotencyKey } from '@/lib/utils'
 import { assertSameOrigin, CsrfError } from '@/lib/security'
-import { AuditService } from '@premium-share/domain'
+import { AuditService, createPaymentProvider } from '@premium-share/domain'
 
 const schema = z.object({
   depositorName: z
@@ -31,34 +31,26 @@ export async function POST(
     if (order.userId !== user.id) return apiError('접근 권한이 없습니다.', 403)
     if (order.status !== 'PENDING_PAYMENT') return apiError('결제 대기 상태가 아닙니다.', 400)
 
-    const existingPayment = await prisma.payment.findFirst({
-      where: { orderId: order.id, status: { not: 'CANCELLED' } },
-    })
-    if (existingPayment) return apiError('이미 결제 정보가 존재합니다.', 409)
-
-    const payment = await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        amountKrw: order.priceKrwSnapshot,
-        status: 'PENDING',
-        source: 'MANUAL',
-        provider: 'manual',
-        depositorName: parsed.data.depositorName,
-        notes: parsed.data.notes,
-        idempotencyKey: generateIdempotencyKey(),
-      },
+    const provider = createPaymentProvider(prisma, 'manual')
+    const result = await provider.createCheckout({
+      orderId: order.id,
+      amountKrw: order.priceKrwSnapshot,
+      userId: user.id,
+      depositorName: parsed.data.depositorName,
+      notes: parsed.data.notes,
+      idempotencyKey: generateIdempotencyKey(),
     })
 
     const audit = new AuditService(prisma)
     await audit.log({
       actorId: user.id,
       targetType: 'Payment',
-      targetId: payment.id,
+      targetId: result.paymentId,
       action: 'BANK_TRANSFER_REPORTED',
       after: {
         orderId: order.id,
-        amountKrw: payment.amountKrw,
-        depositorName: payment.depositorName,
+        amountKrw: order.priceKrwSnapshot,
+        depositorName: parsed.data.depositorName,
       },
       source: 'MANUAL',
     })
@@ -66,8 +58,8 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-        data: payment,
-        message: '입금 신고가 접수되었습니다. 관리자 확인 후 처리됩니다.',
+        data: result,
+        message: result.message ?? '입금 신고가 접수되었습니다. 관리자 확인 후 처리됩니다.',
       },
       { status: 201 },
     )

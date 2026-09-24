@@ -82,6 +82,7 @@ export default async function AdminPaymentsPage({
             <tr>
               <th className="text-left px-4 py-3 font-medium">결제번호</th>
               <th className="text-left px-4 py-3 font-medium">회원</th>
+              <th className="text-left px-4 py-3 font-medium">입금자</th>
               <th className="text-left px-4 py-3 font-medium">상품</th>
               <th className="text-right px-4 py-3 font-medium">금액</th>
               <th className="text-center px-4 py-3 font-medium">상태</th>
@@ -92,7 +93,7 @@ export default async function AdminPaymentsPage({
           <tbody>
             {payments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                   결제 내역이 없습니다.
                 </td>
               </tr>
@@ -101,6 +102,7 @@ export default async function AdminPaymentsPage({
                 <tr key={payment.id} className="border-t hover:bg-muted/30">
                   <td className="px-4 py-3 font-mono text-xs">{payment.id.slice(-10).toUpperCase()}</td>
                   <td className="px-4 py-3 text-muted-foreground">{payment.order.user.email}</td>
+                  <td className="px-4 py-3">{payment.depositorName ?? '—'}</td>
                   <td className="px-4 py-3">{payment.order.productNameSnapshot}</td>
                   <td className="px-4 py-3 text-right font-medium">{formatPrice(payment.amountKrw)}</td>
                   <td className="px-4 py-3 text-center">

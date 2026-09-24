@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         content: `비밀번호 재설정 링크: ${process.env.NEXTAUTH_URL}/auth/reset-password?token=${token}`,
         templateKey: 'password-reset',
         variables: { token, email: user.email },
-        source: 'DEMO',
+        source: process.env.BUSINESS_MODE === 'DEMO' ? 'DEMO' : 'MANUAL',
       },
     })
 
