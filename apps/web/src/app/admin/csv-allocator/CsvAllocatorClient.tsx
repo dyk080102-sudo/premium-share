@@ -60,6 +60,13 @@ interface CsvProcessingResult {
   blockedAccounts: BlockedAccountResult[]
   errors: ProcessingError[]
   exportedCsv: string
+  persist?: {
+    ownersUpserted: number
+    groupsUpserted: number
+    membersSynced: number
+    ownerEmails: string[]
+    groupIds: string[]
+  } | null
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -102,7 +109,7 @@ function Spinner() {
 interface UploadPanelProps {
   onCsvReady: (csv: string, file?: File) => void
   onClear: () => void
-  onSubmit: () => void
+  onSubmit: (persistToSite?: boolean) => void
   loading: boolean
   hasResult: boolean
   error: string | null
@@ -216,19 +223,32 @@ function UploadPanel({ onCsvReady, onClear, onSubmit, loading, hasResult, error 
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <Button
-          onClick={onSubmit}
+          onClick={() => onSubmit(false)}
           disabled={!canSubmit || loading}
           className="gap-2"
         >
           {loading && <Spinner />}
           {loading ? '처리 중...' : '처리 시작'}
         </Button>
+        <Button
+          variant="outline"
+          onClick={() => onSubmit(true)}
+          disabled={!canSubmit || loading}
+          className="gap-2"
+        >
+          {loading ? '반영 중...' : '처리 후 사이트에 반영'}
+        </Button>
         <Button variant="outline" onClick={handleClear} disabled={loading}>
           초기화
         </Button>
       </div>
+      {hasResult && (
+        <p className="text-xs text-muted-foreground">
+          「사이트에 반영」은 가족 공유 Owner/그룹을 DB에 저장해 가족 자동화·그룹 관리에 표시합니다.
+        </p>
+      )}
     </div>
   )
 }
@@ -361,6 +381,19 @@ function ResultsPanel({ result }: { result: CsvProcessingResult }) {
           </div>
         ))}
       </div>
+
+      {result.persist && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900 space-y-1">
+          <div className="font-medium">사이트 DB 반영 완료</div>
+          <div>Owner {result.persist.ownersUpserted} · 그룹 {result.persist.groupsUpserted} · 멤버 {result.persist.membersSynced}</div>
+          {result.persist.ownerEmails.length > 0 && (
+            <div className="text-xs">가족 공유 계정: {result.persist.ownerEmails.join(', ')}</div>
+          )}
+          <a href="/admin/family" className="text-xs text-primary underline inline-block mt-1">
+            가족 자동화에서 확인 →
+          </a>
+        </div>
+      )}
 
       {/* Refunds Table */}
       {result.refundsProcessed.length > 0 && (
@@ -581,7 +614,7 @@ export default function CsvAllocatorClient() {
     setError(null)
   }, [])
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (persistToSite = false) => {
     if (!csvContent.trim()) return
     setSubmitting(true)
     setError(null)
@@ -589,9 +622,17 @@ export default function CsvAllocatorClient() {
     try {
       let res: Response
 
-      if (currentFile) {
+      if (currentFile && !persistToSite) {
         const formData = new FormData()
         formData.append('file', currentFile)
+        res = await fetch('/api/admin/csv-allocator', {
+          method: 'POST',
+          body: formData,
+        })
+      } else if (currentFile && persistToSite) {
+        const formData = new FormData()
+        formData.append('file', currentFile)
+        formData.append('persist', 'true')
         res = await fetch('/api/admin/csv-allocator', {
           method: 'POST',
           body: formData,
@@ -600,7 +641,7 @@ export default function CsvAllocatorClient() {
         res = await fetch('/api/admin/csv-allocator', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ csvContent }),
+          body: JSON.stringify({ csvContent, persist: persistToSite }),
         })
       }
 
@@ -623,7 +664,7 @@ export default function CsvAllocatorClient() {
       <UploadPanel
         onCsvReady={handleCsvReady}
         onClear={handleClear}
-        onSubmit={handleSubmit}
+        onSubmit={(persist) => void handleSubmit(Boolean(persist))}
         loading={submitting}
         hasResult={!!result}
         error={error}

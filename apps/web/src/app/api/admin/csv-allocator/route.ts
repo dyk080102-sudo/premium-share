@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, AuthError } from '@/lib/auth/session'
 import { apiError } from '@/lib/utils'
 import { assertSameOrigin, CsrfError } from '@/lib/security'
-import { CsvAllocatorService } from '@premium-share/domain'
+import prisma from '@/lib/db/prisma'
+import { CsvAllocatorService, CsvFamilyPersistService } from '@premium-share/domain'
 
 const csvAllocator = new CsvAllocatorService()
 
@@ -36,7 +37,7 @@ function mapAllocatorError(error: unknown) {
     return apiError(error.message, 403, 'CSRF')
   }
   const msg = error instanceof Error ? error.message : '서버 오류'
-  if (/CSV 헤더|컬럼이 필요/i.test(msg)) {
+  if (/CSV 헤더|컬럼이 필요|활성 상품/i.test(msg)) {
     return apiError(msg, 400)
   }
   console.error('CSV allocator error:', error)
@@ -45,9 +46,6 @@ function mapAllocatorError(error: unknown) {
 
 /**
  * GET /api/admin/csv-allocator
- *
- * Returns current group vacancy derived from a provided CSV string in the query.
- * Prefer POST { preview: true } for larger CSVs (URL length limits).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -87,26 +85,26 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/admin/csv-allocator
  *
- * Accepts:
- *   - multipart/form-data with field `file` (CSV file upload), OR
- *   - application/json with body `{ csvContent: string, preview?: boolean }`
- *
- * preview:true → vacancy only (no full processing)
- * otherwise → CsvProcessingResult
+ * JSON body:
+ *   { csvContent, preview?: boolean, persist?: boolean }
+ * multipart:
+ *   file + optional preview/persist fields
  */
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request)
-    await requireRole('SUPER_ADMIN', 'OPERATOR')
+    const actor = await requireRole('SUPER_ADMIN', 'OPERATOR')
 
     const contentType = request.headers.get('content-type') ?? ''
     let csvContent: string
     let preview = false
+    let persist = false
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData()
       const file = formData.get('file')
       preview = String(formData.get('preview') ?? '') === 'true'
+      persist = String(formData.get('persist') ?? '') === 'true'
 
       if (!file || typeof file === 'string') {
         return apiError('multipart/form-data에 "file" 필드가 없습니다.', 400)
@@ -134,6 +132,7 @@ export async function POST(request: NextRequest) {
 
       csvContent = body.csvContent
       preview = body.preview === true
+      persist = body.persist === true
     } else {
       return apiError(
         'Content-Type은 multipart/form-data 또는 application/json 이어야 합니다.',
@@ -156,7 +155,19 @@ export async function POST(request: NextRequest) {
 
     const result = await csvAllocator.parseAndProcess(csvContent)
 
-    return NextResponse.json({ success: true, data: result }, { status: 200 })
+    let persistResult = null
+    if (persist) {
+      const finalAccounts = csvAllocator.parseCsvContent(result.exportedCsv)
+      const persistService = new CsvFamilyPersistService(prisma)
+      persistResult = await persistService.persistAccounts(finalAccounts, {
+        actorId: actor.id,
+      })
+    }
+
+    return NextResponse.json(
+      { success: true, data: { ...result, persist: persistResult } },
+      { status: 200 },
+    )
   } catch (error) {
     return mapAllocatorError(error)
   }

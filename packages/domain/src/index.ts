@@ -41,6 +41,8 @@ export { FamilyInviteService } from './services/family/invite.service'
 export { FamilyRemovalService } from './services/family/removal.service'
 export { FamilySheetsService } from './services/family/sheets.service'
 export { CsvAllocatorService } from './services/csv-allocator.service'
+export { CsvFamilyPersistService } from './services/csv-family-persist.service'
+export type { CsvFamilyPersistResult } from './services/csv-family-persist.service'
 export type {
   CsvAccount,
   CsvAccountStatus,
