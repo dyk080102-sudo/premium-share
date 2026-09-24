@@ -47,4 +47,14 @@ function run(cmd, cwd) {
 }
 
 run(`npx prisma generate --schema="${schema}"`, root)
+
+// Apply pending migrations when DATABASE_URL is available (Production/Preview builds).
+if (process.env.DATABASE_URL && process.env.SKIP_MIGRATE !== '1') {
+  try {
+    run(`npx prisma migrate deploy --schema="${schema}"`, root)
+  } catch (err) {
+    console.warn('[vercel-build] migrate deploy failed (continuing build):', err)
+  }
+}
+
 run('npx next build', webDir)

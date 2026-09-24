@@ -2,5 +2,11 @@
   "framework": "nextjs",
   "installCommand": "cd ../.. && npm install",
   "buildCommand": "node scripts/vercel-build.mjs",
-  "regions": ["icn1"]
+  "regions": ["icn1"],
+  "crons": [
+    {
+      "path": "/api/cron/tick",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

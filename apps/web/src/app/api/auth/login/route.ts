@@ -95,6 +95,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof CsrfError) return apiError(error.message, 403, 'CSRF')
     console.error('Login error:', error)
+    const msg = error instanceof Error ? error.message : '서버 오류가 발생했습니다.'
+    // Surface DB/engine failures clearly (common on misconfigured Vercel Prisma)
+    if (/prisma|database|datasource|P1001|P1017|Engine/i.test(msg)) {
+      return apiError('데이터베이스에 연결할 수 없습니다. 관리자에게 문의하세요.', 503, 'DB_UNAVAILABLE')
+    }
     return apiError('서버 오류가 발생했습니다.', 500)
   }
 }

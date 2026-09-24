@@ -4,17 +4,28 @@ import { Header } from '@/components/layout/header'
 import prisma from '@/lib/db/prisma'
 import { formatPrice } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default async function ProductsPage() {
-  const user = await getCurrentUser()
+  const user = await getCurrentUser().catch(() => null)
   const isDemoMode = process.env.BUSINESS_MODE === 'DEMO'
 
-  const products = await prisma.product.findMany({
-    where: { isActive: true, reviewStatus: 'APPROVED' },
-    include: {
-      plans: { where: { isActive: true }, orderBy: { durationDays: 'asc' } },
-    },
-    orderBy: { sortOrder: 'asc' },
-  })
+  let products: Awaited<ReturnType<typeof prisma.product.findMany>> = []
+  let loadError: string | null = null
+
+  try {
+    products = await prisma.product.findMany({
+      where: { isActive: true, reviewStatus: 'APPROVED' },
+      include: {
+        plans: { where: { isActive: true }, orderBy: { durationDays: 'asc' } },
+      },
+      orderBy: { sortOrder: 'asc' },
+    })
+  } catch (error) {
+    console.error('ProductsPage DB error:', error)
+    loadError = '상품 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+  }
 
   return (
     <div className="min-h-screen">
@@ -23,9 +34,17 @@ export default async function ProductsPage() {
         <h1 className="text-3xl font-bold mb-2">상품 목록</h1>
         <p className="text-muted-foreground mb-8">원하시는 구독 서비스를 선택하세요.</p>
 
+        {loadError && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => {
-            const minPlan = product.plans[0]
+            const withPlans = product as typeof product & {
+              plans: { id: string; name: string; durationDays: number; priceKrw: number }[]
+            }
             return (
               <div key={product.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
                 <div className="p-6">
@@ -44,7 +63,7 @@ export default async function ProductsPage() {
                   )}
 
                   <div className="space-y-2 mb-4">
-                    {product.plans.map((plan) => (
+                    {(withPlans.plans ?? []).map((plan) => (
                       <div key={plan.id} className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">{plan.name} ({plan.durationDays}일)</span>
                         <span className="font-semibold">{formatPrice(plan.priceKrw)}</span>
@@ -64,7 +83,7 @@ export default async function ProductsPage() {
           })}
         </div>
 
-        {products.length === 0 && (
+        {!loadError && products.length === 0 && (
           <div className="text-center py-20 text-muted-foreground">
             현재 판매 중인 상품이 없습니다.
           </div>
