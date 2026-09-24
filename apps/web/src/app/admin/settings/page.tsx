@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth/session'
 import prisma from '@/lib/db/prisma'
-import { formatDateTime } from '@/lib/utils'
+import { AppSettingsEditor } from './AppSettingsEditor'
 
 export default async function AdminSettingsPage() {
   const user = await getCurrentUser()
@@ -17,9 +17,13 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <h1 className="text-2xl font-bold">시스템 설정</h1>
+      <div>
+        <h1 className="text-2xl font-bold">시스템 설정</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          입금 계좌 등 앱 설정은 저장 즉시 주문·결제 화면에 반영됩니다.
+        </p>
+      </div>
 
-      {/* Environment Info */}
       <div className="rounded-lg border bg-card p-6">
         <h2 className="font-semibold mb-4">환경 정보</h2>
         <div className="grid gap-3 text-sm">
@@ -38,54 +42,28 @@ export default async function AdminSettingsPage() {
             <span className="text-green-600">연결됨</span>
           </div>
         </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          비즈니스 모드·Node 환경은 서버 환경 변수이며 이 화면에서 변경할 수 없습니다.
+        </p>
       </div>
 
-      {/* App Settings */}
       <div className="rounded-lg border bg-card p-6">
         <h2 className="font-semibold mb-4">앱 설정</h2>
-        {settings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">설정 항목이 없습니다.</p>
-        ) : (
-          <div className="space-y-3">
-            {settings.map((setting) => (
-              <div key={setting.id} className="rounded border p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <code className="text-sm font-mono text-primary">{setting.key}</code>
-                  {setting.updatedAt && (
-                    <span className="text-xs text-muted-foreground">
-                      수정: {formatDateTime(setting.updatedAt)}
-                    </span>
-                  )}
-                </div>
-                {setting.description && (
-                  <p className="text-xs text-muted-foreground mb-2">{setting.description}</p>
-                )}
-                <form action={`/api/admin/settings`} method="POST" className="flex gap-2">
-                  <input type="hidden" name="key" value={setting.key} />
-                  <input
-                    type="text"
-                    name="value"
-                    defaultValue={setting.value}
-                    className="flex-1 rounded border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded border px-3 py-1.5 text-sm hover:bg-muted"
-                  >
-                    저장
-                  </button>
-                </form>
-              </div>
-            ))}
-          </div>
-        )}
+        <AppSettingsEditor
+          settings={settings.map((s) => ({
+            id: s.id,
+            key: s.key,
+            value: s.value,
+            description: s.description,
+            updatedAt: s.updatedAt.toISOString(),
+          }))}
+        />
       </div>
 
-      {/* FAQ Management Link */}
       <div className="rounded-lg border bg-card p-6">
         <h2 className="font-semibold mb-4">콘텐츠 관리</h2>
         <div className="grid gap-3">
-          <a href="/api/admin/faq" className="flex items-center justify-between rounded border p-3 hover:bg-muted text-sm">
+          <a href="/admin/faq" className="flex items-center justify-between rounded border p-3 hover:bg-muted text-sm">
             <span>FAQ 관리</span>
             <span className="text-muted-foreground">→</span>
           </a>
