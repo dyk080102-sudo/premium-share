@@ -415,9 +415,13 @@ export class CsvAllocatorService {
     for (const acc of unassigned) {
       try {
         // --- 12-month re-join policy check ---
-        // If the account has a joined_at date within the last 12 months and is now unassigned,
-        // it means they recently left a group → policy violation.
-        if (acc.joined_at && isWithinMonths(acc.joined_at, REJOIN_BLOCK_MONTHS)) {
+        // Only for unassigned PAID accounts that are not being bootstrapped as MANAGER.
+        // New purchases commonly have a recent joined_at with null group — those must allocate.
+        if (
+          acc.role !== 'MANAGER' &&
+          acc.joined_at &&
+          isWithinMonths(acc.joined_at, REJOIN_BLOCK_MONTHS)
+        ) {
           acc.status = 'BLOCKED_POLICY'
           acc.updated_at = nowIso()
           blockedAccounts.push({
